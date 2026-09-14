@@ -1,0 +1,18 @@
+{
+  "include": [
+    "backend"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    ".pytest_cache"
+  ],
+  "extraPaths": [
+    "backend",
+    "backend/app"
+  ],
+  "pythonVersion": "3.14",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "none"
+}

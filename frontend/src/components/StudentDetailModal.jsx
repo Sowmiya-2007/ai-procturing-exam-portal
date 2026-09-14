@@ -1,0 +1,122 @@
+import React from "react";
+import { X, User, Mail, Hash, BookOpen, Calendar, Clock, AlertCircle } from "lucide-react";
+import { StatusBadge, RoleBadge } from "./StatusBadge";
+
+export const StudentDetailModal = ({ student, isOpen, onClose, onApprove, onReject }) => {
+  if (!isOpen || !student) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "560px", padding: "2rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <div style={{ background: "rgba(99, 102, 241, 0.15)", padding: "0.75rem", borderRadius: "var(--radius-md)", color: "#a5b4fc" }}>
+              <User size={24} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-main)" }}>
+                Student Profile Dossier
+              </h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-subtle)" }}>
+                ID #{student.id} &bull; Registered on {new Date(student.created_at).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div className="glass-card" style={{ padding: "1rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <User size={14} /> Full Name
+            </span>
+            <div style={{ fontWeight: 600, fontSize: "0.95rem", marginTop: "0.25rem", color: "var(--text-main)" }}>
+              {student.name}
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ padding: "1rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <Hash size={14} /> Register Number / ID
+            </span>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", marginTop: "0.25rem", color: "var(--primary-light)", fontFamily: "var(--font-mono)" }}>
+              {student.register_number || "N/A"}
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ padding: "1rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <Mail size={14} /> Institutional Email
+            </span>
+            <div style={{ fontWeight: 600, fontSize: "0.95rem", marginTop: "0.25rem", color: "var(--text-main)", wordBreak: "break-all" }}>
+              {student.email}
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ padding: "1rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <BookOpen size={14} /> Department
+            </span>
+            <div style={{ fontWeight: 600, fontSize: "0.95rem", marginTop: "0.25rem", color: "var(--text-main)" }}>
+              {student.department || "General"}
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ padding: "1rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <Calendar size={14} /> Academic Year
+            </span>
+            <div style={{ fontWeight: 600, fontSize: "0.95rem", marginTop: "0.25rem", color: "var(--text-main)" }}>
+              {student.year || "1st Year"}
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ padding: "1rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <Clock size={14} /> Status
+            </span>
+            <div style={{ marginTop: "0.35rem" }}>
+              <StatusBadge status={student.approval_status} />
+            </div>
+          </div>
+        </div>
+
+        {student.rejection_reason && (
+          <div style={{ background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.3)", borderRadius: "var(--radius-md)", padding: "1rem", marginBottom: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#fb7185", fontWeight: 600, fontSize: "0.85rem", marginBottom: "0.25rem" }}>
+              <AlertCircle size={16} /> Rejection Reason Logged:
+            </div>
+            <div style={{ fontSize: "0.9rem", color: "var(--text-main)" }}>
+              {student.rejection_reason}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem" }}>
+          <button className="btn btn-secondary" onClick={onClose}>
+            Close
+          </button>
+          {student.approval_status === "PENDING" && (
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              {onReject && (
+                <button className="btn btn-rose" onClick={() => onReject(student)}>
+                  Reject Request
+                </button>
+              )}
+              {onApprove && (
+                <button className="btn btn-emerald" onClick={() => onApprove(student)}>
+                  Approve Student
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
