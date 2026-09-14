@@ -112,31 +112,32 @@ export const StudentRegister = ({ setCurrentView }) => {
   };
 
   return (
-    <div className="page-container" style={{ maxWidth: "680px", paddingTop: "2rem", paddingBottom: "3rem" }}>
+    <div className="page-container" style={{ maxWidth: "780px", paddingTop: "3rem", paddingBottom: "5rem" }}>
       {!submitted ? (
-        <div className="glass-card" style={{ padding: "2.5rem" }}>
+        <div className="glass-card" style={{ padding: "3.25rem 3.5rem", borderRadius: "var(--radius-xl)" }}>
           {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: "1.75rem" }}>
+          <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
             <div
               style={{
-                width: "56px",
-                height: "56px",
-                borderRadius: "16px",
-                background: "linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2))",
-                border: "1px solid rgba(99, 102, 241, 0.4)",
+                width: "68px",
+                height: "68px",
+                borderRadius: "20px",
+                background: "linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(168, 85, 247, 0.22))",
+                border: "1px solid rgba(99, 102, 241, 0.45)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                margin: "0 auto 1rem",
-                color: "#a5b4fc"
+                margin: "0 auto 1.25rem",
+                color: "#a5b4fc",
+                boxShadow: "0 8px 24px rgba(99, 102, 241, 0.25)"
               }}
             >
-              {selectedRole === "STUDENT" ? <GraduationCap size={28} /> : <ShieldCheck size={28} />}
+              {selectedRole === "STUDENT" ? <GraduationCap size={34} /> : <ShieldCheck size={34} />}
             </div>
-            <h1 style={{ fontSize: "1.85rem", fontWeight: 800, color: "var(--text-main)", marginBottom: "0.4rem" }}>
+            <h1 style={{ fontSize: "2.2rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.025em", marginBottom: "0.5rem" }}>
               User Registration Portal
             </h1>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
+            <p style={{ fontSize: "0.95rem", color: "var(--text-muted)", lineHeight: 1.55 }}>
               Create your candidate or examiner profile for the AI Examination Platform
             </p>
           </div>
@@ -145,12 +146,12 @@ export const StudentRegister = ({ setCurrentView }) => {
           <div style={{ 
             display: "grid", 
             gridTemplateColumns: "1fr 1fr", 
-            gap: "0.75rem", 
-            background: "rgba(15, 23, 42, 0.6)", 
-            padding: "0.35rem", 
+            gap: "0.85rem", 
+            background: "rgba(15, 23, 42, 0.7)", 
+            padding: "0.45rem", 
             borderRadius: "var(--radius-md)", 
             border: "1px solid var(--border-color)",
-            marginBottom: "1.75rem" 
+            marginBottom: "2.25rem" 
           }}>
             <button
               type="button"
@@ -159,19 +160,20 @@ export const StudentRegister = ({ setCurrentView }) => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "0.5rem",
-                padding: "0.65rem 1rem",
+                gap: "0.65rem",
+                padding: "0.85rem 1.25rem",
                 borderRadius: "var(--radius-sm)",
                 border: "none",
                 background: selectedRole === "STUDENT" ? "linear-gradient(135deg, #4f46e5, #6366f1)" : "transparent",
                 color: selectedRole === "STUDENT" ? "#ffffff" : "var(--text-muted)",
                 fontWeight: 700,
-                fontSize: "0.9rem",
+                fontSize: "0.95rem",
                 cursor: "pointer",
-                transition: "all 0.2s ease"
+                transition: "all 0.2s ease",
+                boxShadow: selectedRole === "STUDENT" ? "0 4px 12px rgba(99, 102, 241, 0.3)" : "none"
               }}
             >
-              <GraduationCap size={18} />
+              <GraduationCap size={20} />
               Student Candidate
             </button>
             <button
@@ -181,19 +183,20 @@ export const StudentRegister = ({ setCurrentView }) => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "0.5rem",
-                padding: "0.65rem 1rem",
+                gap: "0.65rem",
+                padding: "0.85rem 1.25rem",
                 borderRadius: "var(--radius-sm)",
                 border: "none",
                 background: selectedRole === "EXAMINER" ? "linear-gradient(135deg, #7c3aed, #9333ea)" : "transparent",
                 color: selectedRole === "EXAMINER" ? "#ffffff" : "var(--text-muted)",
                 fontWeight: 700,
-                fontSize: "0.9rem",
+                fontSize: "0.95rem",
                 cursor: "pointer",
-                transition: "all 0.2s ease"
+                transition: "all 0.2s ease",
+                boxShadow: selectedRole === "EXAMINER" ? "0 4px 12px rgba(168, 85, 247, 0.3)" : "none"
               }}
             >
-              <ShieldCheck size={18} />
+              <ShieldCheck size={20} />
               Faculty Examiner
             </button>
           </div>
@@ -203,12 +206,12 @@ export const StudentRegister = ({ setCurrentView }) => {
             <div
               style={{
                 background: "rgba(244, 63, 94, 0.12)",
-                border: "1px solid rgba(244, 63, 94, 0.35)",
+                border: "1px solid rgba(244, 63, 94, 0.4)",
                 borderRadius: "var(--radius-md)",
-                padding: "0.85rem 1rem",
+                padding: "1rem 1.25rem",
                 color: "#fda4af",
-                fontSize: "0.875rem",
-                marginBottom: "1.5rem"
+                fontSize: "0.925rem",
+                marginBottom: "2rem"
               }}
             >
               {errorMsg}
@@ -217,57 +220,68 @@ export const StudentRegister = ({ setCurrentView }) => {
 
           <form onSubmit={handleSubmit}>
             {/* Full Name */}
-            <div className="form-group">
-              <label className="form-label">{selectedRole === "EXAMINER" ? "Faculty Full Name *" : "Student Full Name *"}</label>
+            <div className="form-group" style={{ marginBottom: "1.75rem" }}>
+              <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
+                {selectedRole === "EXAMINER" ? "Faculty Full Name *" : "Student Full Name *"}
+              </label>
               <input
                 type="text"
                 name="name"
                 required
                 placeholder={selectedRole === "EXAMINER" ? "e.g. Prof. David Miller" : "e.g. Alex Morgan"}
                 className="form-control"
+                style={{ padding: "0.95rem 1.25rem", fontSize: "0.975rem" }}
                 value={formData.name}
                 onChange={handleChange}
               />
             </div>
 
             {/* Email & Register Number Row */}
-            <div style={{ display: "grid", gridTemplateColumns: selectedRole === "STUDENT" ? "1fr 1fr" : "1fr", gap: "1rem" }}>
-              <div className="form-group">
-                <label className="form-label">Institutional Email *</label>
+            <div style={{ display: "grid", gridTemplateColumns: selectedRole === "STUDENT" ? "1fr 1fr" : "1fr", gap: "1.5rem", marginBottom: "1.75rem" }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
+                  Institutional Email *
+                </label>
                 <input
                   type="email"
                   name="email"
                   required
                   placeholder={selectedRole === "EXAMINER" ? "faculty@university.edu" : "student@college.edu"}
                   className="form-control"
+                  style={{ padding: "0.95rem 1.25rem", fontSize: "0.975rem" }}
                   value={formData.email}
                   onChange={handleChange}
                 />
               </div>
               {selectedRole === "STUDENT" && (
-                <div className="form-group">
-                  <label className="form-label">Register Number / Student ID *</label>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
+                    Register Number / Student ID *
+                  </label>
                   <input
                     type="text"
                     name="register_number"
                     required
                     placeholder="e.g. REG2024CS042"
                     className="form-control"
+                    style={{ padding: "0.95rem 1.25rem", fontSize: "0.975rem", textTransform: "uppercase" }}
                     value={formData.register_number}
                     onChange={handleChange}
-                    style={{ textTransform: "uppercase" }}
                   />
                 </div>
               )}
             </div>
 
             {/* Department & Year Row */}
-            <div style={{ display: "grid", gridTemplateColumns: selectedRole === "STUDENT" ? "1fr 1fr" : "1fr", gap: "1rem" }}>
-              <div className="form-group">
-                <label className="form-label">Academic Department *</label>
+            <div style={{ display: "grid", gridTemplateColumns: selectedRole === "STUDENT" ? "1fr 1fr" : "1fr", gap: "1.5rem", marginBottom: "1.75rem" }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
+                  Academic Department *
+                </label>
                 <select
                   name="department"
                   className="form-control"
+                  style={{ padding: "0.95rem 1.25rem", fontSize: "0.975rem" }}
                   value={formData.department}
                   onChange={handleChange}
                 >
@@ -279,11 +293,14 @@ export const StudentRegister = ({ setCurrentView }) => {
                 </select>
               </div>
               {selectedRole === "STUDENT" && (
-                <div className="form-group">
-                  <label className="form-label">Academic Year *</label>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
+                    Academic Year *
+                  </label>
                   <select
                     name="year"
                     className="form-control"
+                    style={{ padding: "0.95rem 1.25rem", fontSize: "0.975rem" }}
                     value={formData.year}
                     onChange={handleChange}
                   >
@@ -298,9 +315,11 @@ export const StudentRegister = ({ setCurrentView }) => {
             </div>
 
             {/* Password & Confirm Password Row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-              <div className="form-group">
-                <label className="form-label">Password *</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
+                  Password *
+                </label>
                 <input
                   type="password"
                   name="password"
@@ -308,12 +327,15 @@ export const StudentRegister = ({ setCurrentView }) => {
                   minLength={6}
                   placeholder="Minimum 6 characters"
                   className="form-control"
+                  style={{ padding: "0.95rem 1.25rem", fontSize: "0.975rem" }}
                   value={formData.password}
                   onChange={handleChange}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Confirm Password *</label>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
+                  Confirm Password *
+                </label>
                 <input
                   type="password"
                   name="confirm_password"
@@ -321,6 +343,7 @@ export const StudentRegister = ({ setCurrentView }) => {
                   minLength={6}
                   placeholder="Repeat your password"
                   className="form-control"
+                  style={{ padding: "0.95rem 1.25rem", fontSize: "0.975rem" }}
                   value={formData.confirm_password}
                   onChange={handleChange}
                 />
@@ -331,19 +354,20 @@ export const StudentRegister = ({ setCurrentView }) => {
             {selectedRole === "EXAMINER" ? (
               <div
                 style={{
-                  background: "rgba(245, 158, 11, 0.08)",
-                  border: "1px solid rgba(245, 158, 11, 0.25)",
+                  background: "rgba(245, 158, 11, 0.09)",
+                  border: "1px solid rgba(245, 158, 11, 0.3)",
                   borderRadius: "var(--radius-md)",
-                  padding: "0.85rem 1rem",
+                  padding: "1.1rem 1.35rem",
                   display: "flex",
                   alignItems: "center",
-                  gap: "0.75rem",
-                  marginBottom: "1.75rem",
+                  gap: "1rem",
+                  marginBottom: "2.25rem",
                   color: "#fcd34d",
-                  fontSize: "0.825rem"
+                  fontSize: "0.9rem",
+                  lineHeight: 1.55
                 }}
               >
-                <Clock size={18} style={{ flexShrink: 0 }} />
+                <Clock size={22} style={{ flexShrink: 0 }} />
                 <div>
                   <strong>Examiner Workflow:</strong> Your examiner account will be submitted with <strong>PENDING</strong> status and requires Administrator approval before question authoring and exam management are unlocked.
                 </div>
@@ -351,19 +375,20 @@ export const StudentRegister = ({ setCurrentView }) => {
             ) : (
               <div
                 style={{
-                  background: "rgba(16, 185, 129, 0.08)",
-                  border: "1px solid rgba(16, 185, 129, 0.25)",
+                  background: "rgba(16, 185, 129, 0.09)",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
                   borderRadius: "var(--radius-md)",
-                  padding: "0.85rem 1rem",
+                  padding: "1.1rem 1.35rem",
                   display: "flex",
                   alignItems: "center",
-                  gap: "0.75rem",
-                  marginBottom: "1.75rem",
+                  gap: "1rem",
+                  marginBottom: "2.25rem",
                   color: "#6ee7b7",
-                  fontSize: "0.825rem"
+                  fontSize: "0.9rem",
+                  lineHeight: 1.55
                 }}
               >
-                <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
+                <CheckCircle2 size={22} style={{ flexShrink: 0 }} />
                 <div>
                   <strong>Student Workflow:</strong> Student candidate registrations are activated immediately upon submission.
                 </div>
@@ -374,7 +399,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               type="submit"
               disabled={loading}
               className="btn btn-primary btn-lg"
-              style={{ width: "100%" }}
+              style={{ width: "100%", padding: "1rem 2rem", fontSize: "1.05rem" }}
             >
               {loading 
                 ? "Submitting Registration..." 
@@ -386,11 +411,11 @@ export const StudentRegister = ({ setCurrentView }) => {
           </form>
 
           {/* Footer link */}
-          <div style={{ textAlign: "center", marginTop: "1.75rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border-color)", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+          <div style={{ textAlign: "center", marginTop: "2.25rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border-color)", fontSize: "0.95rem", color: "var(--text-muted)" }}>
             Already registered?{" "}
             <button
               onClick={() => setCurrentView(selectedRole === "EXAMINER" ? "admin_login" : "student_login")}
-              style={{ background: "transparent", border: "none", color: "var(--primary-light)", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+              style={{ background: "transparent", border: "none", color: "var(--primary-light)", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: "0.95rem" }}
             >
               Sign In Here
             </button>
@@ -398,73 +423,74 @@ export const StudentRegister = ({ setCurrentView }) => {
         </div>
       ) : (
         /* Submission Confirmation Screen */
-        <div className="glass-card" style={{ padding: "3rem 2.5rem", textAlign: "center", animation: "slideUp 0.3s ease-out" }}>
+        <div className="glass-card" style={{ padding: "3.5rem 3rem", textAlign: "center", animation: "slideUp 0.3s ease-out", borderRadius: "var(--radius-xl)" }}>
           <div
             style={{
-              width: "72px",
-              height: "72px",
+              width: "80px",
+              height: "80px",
               borderRadius: "50%",
               background: registeredInfo?.status === "PENDING" ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.15)",
-              border: `2px solid ${registeredInfo?.status === "PENDING" ? "#f59e0b" : "#10b981"}`,
+              border: `2.5px solid ${registeredInfo?.status === "PENDING" ? "#f59e0b" : "#10b981"}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              margin: "0 auto 1.5rem",
-              color: registeredInfo?.status === "PENDING" ? "#fbbf24" : "#34d399"
+              margin: "0 auto 1.75rem",
+              color: registeredInfo?.status === "PENDING" ? "#fbbf24" : "#34d399",
+              boxShadow: registeredInfo?.status === "PENDING" ? "0 0 25px rgba(245, 158, 11, 0.25)" : "0 0 25px rgba(16, 185, 129, 0.25)"
             }}
           >
-            {registeredInfo?.status === "PENDING" ? <Clock size={36} /> : <CheckCircle2 size={36} />}
+            {registeredInfo?.status === "PENDING" ? <Clock size={40} /> : <CheckCircle2 size={40} />}
           </div>
 
           <span 
             className={`badge ${registeredInfo?.status === "PENDING" ? "badge-pending" : "badge-approved"}`}
-            style={{ fontSize: "0.85rem", padding: "0.35rem 0.85rem", marginBottom: "1rem" }}
+            style={{ fontSize: "0.85rem", padding: "0.4rem 1rem", marginBottom: "1.25rem" }}
           >
             Account Status: {registeredInfo?.status}
           </span>
 
-          <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-main)", marginBottom: "1rem", marginTop: "0.5rem" }}>
+          <h2 style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-main)", marginBottom: "1.25rem", marginTop: "0.75rem", letterSpacing: "-0.02em" }}>
             {registeredInfo?.status === "PENDING" ? "Registration Awaiting Approval" : "Registration Successful!"}
           </h2>
 
           <div
             style={{
-              background: "rgba(15, 23, 42, 0.8)",
-              border: `1px solid ${registeredInfo?.status === "PENDING" ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)"}`,
+              background: "rgba(15, 23, 42, 0.85)",
+              border: `1px solid ${registeredInfo?.status === "PENDING" ? "rgba(245, 158, 11, 0.35)" : "rgba(16, 185, 129, 0.35)"}`,
               borderRadius: "var(--radius-md)",
-              padding: "1.25rem",
-              fontSize: "1.05rem",
+              padding: "1.5rem 1.75rem",
+              fontSize: "1.1rem",
               fontWeight: 600,
               color: registeredInfo?.status === "PENDING" ? "#fde68a" : "#6ee7b7",
-              lineHeight: 1.5,
-              marginBottom: "2rem"
+              lineHeight: 1.6,
+              marginBottom: "2.5rem"
             }}
           >
             "{registeredInfo?.message}"
           </div>
 
-          <div className="glass-card" style={{ padding: "1.25rem", textAlign: "left", marginBottom: "2rem", background: "rgba(30, 41, 59, 0.4)" }}>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700, marginBottom: "0.5rem" }}>
+          <div className="glass-card" style={{ padding: "1.75rem", textAlign: "left", marginBottom: "2.5rem", background: "rgba(30, 41, 59, 0.45)" }}>
+            <div style={{ fontSize: "0.85rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700, marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
               Registered Profile Details:
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.6rem", fontSize: "0.95rem" }}>
               <span style={{ color: "var(--text-muted)" }}>Name:</span>
               <span style={{ fontWeight: 600, color: "var(--text-main)" }}>{registeredInfo?.name}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.6rem", fontSize: "0.95rem" }}>
               <span style={{ color: "var(--text-muted)" }}>Role:</span>
               <span style={{ fontWeight: 700, color: "var(--primary-light)" }}>{registeredInfo?.role}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
               <span style={{ color: "var(--text-muted)" }}>Email:</span>
               <span style={{ color: "var(--text-main)" }}>{registeredInfo?.email}</span>
             </div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: "1.25rem", flexWrap: "wrap" }}>
             <button
               onClick={() => setCurrentView(registeredInfo?.role === "EXAMINER" ? "admin_login" : "student_login")}
-              className="btn btn-primary"
+              className="btn btn-primary btn-lg"
             >
               Go to Sign In
             </button>
@@ -481,7 +507,7 @@ export const StudentRegister = ({ setCurrentView }) => {
                   confirm_password: ""
                 });
               }}
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-lg"
             >
               Register Another Account
             </button>
