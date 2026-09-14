@@ -111,10 +111,19 @@ export const ExaminerResultsAudit = ({ initialExamId = null, onBack }) => {
       return;
     }
 
+    const qb = (sessionDetails?.question_breakdown || []).find(q => q.question_id === questionId);
+    if (!qb || !qb.answer_id) {
+      showToast("No submitted answer found for this question to grade.", "error");
+      return;
+    }
+
     try {
       setSavingGrade(true);
-      // Recalculate candidate marks via api
-      showToast(`Grade updated to ${newMarks} Marks! Recalculating candidate score...`, "success");
+      await api.overrideAnswerGrade(qb.answer_id, {
+        marks_awarded: newMarks,
+        feedback: "Audited and adjusted by faculty examiner."
+      });
+      showToast(`Grade updated to ${newMarks} Marks! Score recalculated.`, "success");
       
       // Reload session details
       const refreshed = await api.getSessionResult(activeSessionToken);

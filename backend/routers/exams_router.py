@@ -375,6 +375,12 @@ def create_exam(
     current_user: User = Depends(require_approved_examiner), 
     db: Session = Depends(get_db)
 ):
+    if payload.duration_minutes <= 0:
+        raise HTTPException(status_code=400, detail="Exam duration must be greater than zero minutes.")
+
+    if payload.status == ExamStatus.PUBLISHED and (not payload.questions or len(payload.questions) == 0):
+        raise HTTPException(status_code=400, detail="Cannot publish an exam without questions. Please add questions or save as DRAFT.")
+
     proctoring = payload.proctoring_enabled if payload.proctoring_enabled is not None else True
     webcam = payload.webcam_monitoring_enabled if payload.webcam_monitoring_enabled is not None else True
     gaze = payload.gaze_tracking_enabled if payload.gaze_tracking_enabled is not None else True
@@ -386,6 +392,7 @@ def create_exam(
         description=payload.description.strip() if payload.description else None,
         duration_minutes=payload.duration_minutes,
         total_questions=len(payload.questions) if payload.questions else 0,
+        passing_marks=payload.passing_marks if payload.passing_marks is not None else 40.0,
         randomization_enabled=True,
         negative_marking_enabled=False,
         default_negative_marks=0.0,
@@ -400,9 +407,13 @@ def create_exam(
     db.commit()
     db.refresh(new_exam)
 
-    # Link questions if provided
+    # Link questions if provided (ensuring no duplicate question IDs)
     if payload.questions:
+        seen_qids = set()
         for idx, q_link in enumerate(payload.questions):
+            if q_link.question_id in seen_qids:
+                continue
+            seen_qids.add(q_link.question_id)
             eq = ExamQuestion(
                 exam_id=new_exam.id,
                 question_id=q_link.question_id,
@@ -410,6 +421,7 @@ def create_exam(
                 question_order=q_link.order or (idx + 1)
             )
             db.add(eq)
+        new_exam.total_questions = len(seen_qids)
         db.commit()
         db.refresh(new_exam)
 
@@ -432,9 +444,17 @@ def update_exam(
     current_user: User = Depends(require_approved_examiner),
     db: Session = Depends(get_db)
 ):
-    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    exam = db.query(Exam).options(joinedload(Exam.exam_questions)).filter(Exam.id == exam_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found.")
+
+    if current_user.role != UserRole.ADMIN and exam.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only modify exams created by yourself.")
+
+    if payload.duration_minutes is not None:
+        if payload.duration_minutes <= 0:
+            raise HTTPException(status_code=400, detail="Exam duration must be greater than 0.")
+        exam.duration_minutes = payload.duration_minutes
 
     if payload.title is not None:
         exam.title = payload.title.strip()
@@ -442,9 +462,11 @@ def update_exam(
         exam.subject = payload.subject.strip()
     if payload.description is not None:
         exam.description = payload.description.strip()
-    if payload.duration_minutes is not None:
-        exam.duration_minutes = payload.duration_minutes
+    if payload.passing_marks is not None:
+        exam.passing_marks = payload.passing_marks
     if payload.status is not None:
+        if payload.status == ExamStatus.PUBLISHED and len(exam.exam_questions) == 0:
+            raise HTTPException(status_code=400, detail="Cannot publish an exam with 0 questions. Please add questions first.")
         exam.status = payload.status
     if payload.proctoring_enabled is not None:
         exam.proctoring_enabled = payload.proctoring_enabled
@@ -476,14 +498,19 @@ def toggle_exam_status(
     current_user: User = Depends(require_approved_examiner),
     db: Session = Depends(get_db)
 ):
-    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    exam = db.query(Exam).options(joinedload(Exam.exam_questions)).filter(Exam.id == exam_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found.")
+
+    if current_user.role != UserRole.ADMIN and exam.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only toggle status of exams created by yourself.")
 
     # Toggle between PUBLISHED and DRAFT
     if exam.status == ExamStatus.PUBLISHED:
         exam.status = ExamStatus.DRAFT
     else:
+        if len(exam.exam_questions) == 0:
+            raise HTTPException(status_code=400, detail="Cannot publish an exam with 0 questions. Please add questions first.")
         exam.status = ExamStatus.PUBLISHED
 
     exam.updated_at = datetime.now(timezone.utc)
@@ -507,6 +534,9 @@ def delete_exam(
     exam = db.query(Exam).filter(Exam.id == exam_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found.")
+
+    if current_user.role != UserRole.ADMIN and exam.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete exams created by yourself.")
 
     db.delete(exam)
     db.commit()

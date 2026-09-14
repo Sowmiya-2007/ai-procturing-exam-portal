@@ -21,6 +21,11 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole, name="user_role_enum"), default=UserRole.STUDENT, nullable=False, index=True)
     approval_status: Mapped[ApprovalStatus] = mapped_column(SQLEnum(ApprovalStatus, name="approval_status_enum"), default=ApprovalStatus.PENDING, nullable=False, index=True)
     
+    # Student metadata
+    register_number: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    department: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    year: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
     # Self-referencing Admin Approval relationship
     approved_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

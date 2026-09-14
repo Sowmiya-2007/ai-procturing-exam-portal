@@ -103,11 +103,14 @@ def list_questions(
             "question_text": q.question_text,
             "question_type": q.question_type,
             "subject": q.subject,
+            "topic": q.topic,
             "difficulty": q.difficulty,
             "marks": q.max_marks,
             "negative_marks": q.negative_marks,
+            "expected_answer": q.expected_answer,
             "model_answer": q.model_answer,
-            "created_by": q.created_by,
+            "evaluation_guidelines": q.evaluation_guidelines,
+            "created_by": q.created_by or 0,
             "creator_name": q.creator.name if q.creator else "System",
             "created_at": q.created_at,
             "options": q.options
@@ -127,11 +130,14 @@ def get_question(question_id: int, db: Session = Depends(get_db)):
         "question_text": q.question_text,
         "question_type": q.question_type,
         "subject": q.subject,
+        "topic": q.topic,
         "difficulty": q.difficulty,
         "marks": q.max_marks,
         "negative_marks": q.negative_marks,
+        "expected_answer": q.expected_answer,
         "model_answer": q.model_answer,
-        "created_by": q.created_by,
+        "evaluation_guidelines": q.evaluation_guidelines,
+        "created_by": q.created_by or 0,
         "creator_name": q.creator.name if q.creator else "System",
         "created_at": q.created_at,
         "options": q.options
@@ -166,10 +172,13 @@ def create_question(
         question_text=payload.question_text.strip(),
         question_type=payload.question_type,
         subject=payload.subject.strip(),
+        topic=payload.topic.strip() if payload.topic else None,
         difficulty=payload.difficulty,
         max_marks=payload.marks,
         negative_marks=payload.negative_marks,
+        expected_answer=payload.expected_answer.strip() if payload.expected_answer else None,
         model_answer=payload.model_answer.strip() if payload.model_answer else None,
+        evaluation_guidelines=payload.evaluation_guidelines.strip() if payload.evaluation_guidelines else None,
         created_by=current_user.id
     )
     db.add(new_q)
@@ -193,10 +202,13 @@ def create_question(
         "question_text": new_q.question_text,
         "question_type": new_q.question_type,
         "subject": new_q.subject,
+        "topic": new_q.topic,
         "difficulty": new_q.difficulty,
         "marks": new_q.max_marks,
         "negative_marks": new_q.negative_marks,
+        "expected_answer": new_q.expected_answer,
         "model_answer": new_q.model_answer,
+        "evaluation_guidelines": new_q.evaluation_guidelines,
         "created_by": new_q.created_by,
         "creator_name": current_user.name,
         "created_at": new_q.created_at,
@@ -214,20 +226,29 @@ def update_question(
     if not q:
         raise HTTPException(status_code=404, detail="Question not found.")
 
+    if current_user.role != UserRole.ADMIN and q.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only modify questions created by yourself.")
+
     if payload.question_text is not None:
         q.question_text = payload.question_text.strip()
     if payload.question_type is not None:
         q.question_type = payload.question_type
     if payload.subject is not None:
         q.subject = payload.subject.strip()
+    if payload.topic is not None:
+        q.topic = payload.topic.strip() if payload.topic else None
     if payload.difficulty is not None:
         q.difficulty = payload.difficulty
     if payload.marks is not None:
         q.max_marks = payload.marks
     if payload.negative_marks is not None:
         q.negative_marks = payload.negative_marks
+    if payload.expected_answer is not None:
+        q.expected_answer = payload.expected_answer.strip() if payload.expected_answer else None
     if payload.model_answer is not None:
         q.model_answer = payload.model_answer.strip() if payload.model_answer else None
+    if payload.evaluation_guidelines is not None:
+        q.evaluation_guidelines = payload.evaluation_guidelines.strip() if payload.evaluation_guidelines else None
 
     # Handle options update if provided
     if payload.options is not None:
@@ -248,10 +269,13 @@ def update_question(
         "question_text": q.question_text,
         "question_type": q.question_type,
         "subject": q.subject,
+        "topic": q.topic,
         "difficulty": q.difficulty,
         "marks": q.max_marks,
         "negative_marks": q.negative_marks,
+        "expected_answer": q.expected_answer,
         "model_answer": q.model_answer,
+        "evaluation_guidelines": q.evaluation_guidelines,
         "created_by": q.created_by,
         "creator_name": q.creator.name if q.creator else current_user.name,
         "created_at": q.created_at,
@@ -267,6 +291,9 @@ def delete_question(
     q = db.query(Question).filter(Question.id == question_id).first()
     if not q:
         raise HTTPException(status_code=404, detail="Question not found.")
+
+    if current_user.role != UserRole.ADMIN and q.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete questions created by yourself.")
 
     db.delete(q)
     db.commit()

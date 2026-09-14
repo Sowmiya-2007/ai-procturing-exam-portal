@@ -222,6 +222,13 @@ def start_exam_session(
         )
         sanitized_questions.append(sanitized_q)
 
+    now = datetime.now(timezone.utc)
+    now_naive = now.replace(tzinfo=None)
+    s_at = session.started_at or now
+    s_at_naive = s_at.replace(tzinfo=None) if hasattr(s_at, "replace") and s_at.tzinfo else s_at
+    elapsed_seconds = max(0, int((now_naive - s_at_naive).total_seconds()))
+    remaining_seconds = max(0, int(exam.duration_minutes * 60 - elapsed_seconds))
+
     return ExamSessionStartResponse(
         session_id=session.id,
         session_token=session.session_token,
@@ -231,8 +238,10 @@ def start_exam_session(
         exam_description=exam.description,
         duration_minutes=exam.duration_minutes,
         total_marks=total_m,
-        passing_marks=round(total_m * 0.4, 2),
-        started_at=session.started_at or datetime.now(timezone.utc),
+        passing_marks=getattr(exam, "passing_marks", None) or round(total_m * 0.4, 2),
+        started_at=s_at,
+        server_time=now,
+        remaining_seconds=remaining_seconds,
         status=session.status,
         questions_count=len(sanitized_questions),
         questions=sanitized_questions,
@@ -249,6 +258,7 @@ def get_active_session(
 ):
     """
     Resume an active examination session using session token.
+    Accurately computes server-side remaining time based on server clock.
     """
     session = db.query(ExamSession).options(
         joinedload(ExamSession.exam).joinedload(Exam.exam_questions).joinedload(ExamQuestion.question).joinedload(Question.options)
@@ -269,6 +279,7 @@ def get_active_session(
             "selected_option_ids": ans.selected_option_ids,
             "text_answer": ans.text_answer,
             "image_url": ans.image_url,
+            "is_flagged": ans.is_flagged,
             "updated_at": ans.updated_at.isoformat() if ans.updated_at else None
         }
 
@@ -302,6 +313,13 @@ def get_active_session(
         )
         sanitized_questions.append(sanitized_q)
 
+    now = datetime.now(timezone.utc)
+    now_naive = now.replace(tzinfo=None)
+    s_at = session.started_at or now
+    s_at_naive = s_at.replace(tzinfo=None) if hasattr(s_at, "replace") and s_at.tzinfo else s_at
+    elapsed_seconds = max(0, int((now_naive - s_at_naive).total_seconds()))
+    remaining_seconds = max(0, int(exam.duration_minutes * 60 - elapsed_seconds))
+
     return ExamSessionStartResponse(
         session_id=session.id,
         session_token=session.session_token,
@@ -311,8 +329,10 @@ def get_active_session(
         exam_description=exam.description,
         duration_minutes=exam.duration_minutes,
         total_marks=total_m,
-        passing_marks=round(total_m * 0.4, 2),
-        started_at=session.started_at or datetime.now(timezone.utc),
+        passing_marks=getattr(exam, "passing_marks", None) or round(total_m * 0.4, 2),
+        started_at=s_at,
+        server_time=now,
+        remaining_seconds=remaining_seconds,
         status=session.status,
         questions_count=len(sanitized_questions),
         questions=sanitized_questions,
@@ -363,6 +383,7 @@ def save_session_answer(
             selected_option_ids=payload.selected_option_ids,
             text_answer=payload.text_answer,
             image_url=payload.image_url,
+            is_flagged=payload.is_flagged if payload.is_flagged is not None else False,
             created_at=now,
             updated_at=now
         )
@@ -371,6 +392,8 @@ def save_session_answer(
         answer.selected_option_ids = payload.selected_option_ids
         answer.text_answer = payload.text_answer
         answer.image_url = payload.image_url
+        if payload.is_flagged is not None:
+            answer.is_flagged = payload.is_flagged
         answer.updated_at = now
 
     db.commit()
@@ -434,6 +457,7 @@ def submit_exam_session(
     Submit completed examination.
     Executes automated AI grading engine across all 5 question types,
     computes integrity trust score, and creates final Result record.
+    Idempotent: if already submitted, returns existing result cleanly.
     """
     session = db.query(ExamSession).options(
         joinedload(ExamSession.exam).joinedload(Exam.exam_questions).joinedload(ExamQuestion.question).joinedload(Question.options),
@@ -452,9 +476,10 @@ def submit_exam_session(
     now = datetime.now(timezone.utc)
 
     # Mark session submitted
-    session.status = SessionStatus.SUBMITTED
-    session.submitted_at = now
-    db.commit()
+    if session.status != SessionStatus.SUBMITTED:
+        session.status = SessionStatus.SUBMITTED
+        session.submitted_at = now
+        db.commit()
 
     # Build answers map
     existing_answers = {ans.question_id: ans for ans in session.answers}
@@ -463,6 +488,9 @@ def submit_exam_session(
     total_obtained_marks = 0.0
     answered_count = 0
     correct_count = 0
+    wrong_count = 0
+    unanswered_count = 0
+    subjective_marks_sum = 0.0
     question_breakdown: List[QuestionResultBreakdown] = []
 
     sorted_eqs = sorted(exam.exam_questions, key=lambda x: x.question_order or 1)
@@ -496,6 +524,8 @@ def submit_exam_session(
             )
             if has_content:
                 answered_count += 1
+            else:
+                unanswered_count += 1
 
             if q.question_type == QuestionType.MCQ:
                 selected = ans.selected_option_ids or []
@@ -508,6 +538,7 @@ def submit_exam_session(
                         ai_feedback = "Correct answer selected."
                     else:
                         is_correct = False
+                        wrong_count += 1
                         if q.negative_marks and q.negative_marks > 0:
                             marks_awarded = -abs(q.negative_marks)
                             ai_feedback = f"Incorrect option. Negative marking applied (-{q.negative_marks})."
@@ -539,6 +570,7 @@ def submit_exam_session(
                         else:
                             marks_awarded = 0.0
                             is_correct = False
+                            wrong_count += 1
                             ai_feedback = f"Incorrect combination selected ({false_positives} invalid options picked)."
                 else:
                     marks_awarded = 0.0
@@ -550,19 +582,26 @@ def submit_exam_session(
                 )
                 marks_awarded = awarded
                 ai_feedback = feedback
+                ans.ai_suggested_score = awarded
+                ans.ai_justification = feedback
+                subjective_marks_sum += marks_awarded
                 if marks_awarded >= (q_marks * 0.7):
                     is_correct = True
                     correct_count += 1
                 else:
                     is_correct = marks_awarded > 0
+                    if not is_correct and has_content:
+                        wrong_count += 1
 
             elif q.question_type == QuestionType.IMAGE_UPLOAD:
                 if ans.image_url:
-                    # Automated preliminary diagram verification
-                    marks_awarded = round(q_marks * 0.90, 2) # Preliminary high score
+                    marks_awarded = round(q_marks * 0.80, 2) # Preliminary AI suggestion
                     is_correct = True
                     correct_count += 1
-                    ai_feedback = "Handwritten diagram submission captured and verified. Schematic verified by vision model."
+                    ai_feedback = "Handwritten diagram submission captured. Preliminary suggestion recorded; awaiting examiner review."
+                    ans.ai_suggested_score = marks_awarded
+                    ans.ai_justification = ai_feedback
+                    subjective_marks_sum += marks_awarded
                 else:
                     marks_awarded = 0.0
                     is_correct = False
@@ -573,6 +612,7 @@ def submit_exam_session(
             db.commit()
 
         else:
+            unanswered_count += 1
             marks_awarded = 0.0
             is_correct = False
             ai_feedback = "Unanswered question."
@@ -580,6 +620,7 @@ def submit_exam_session(
         total_obtained_marks += marks_awarded
 
         qb = QuestionResultBreakdown(
+            answer_id=ans.id if ans else None,
             question_id=q.id,
             order=eq.question_order or (idx + 1),
             question_text=q.question_text,
@@ -596,13 +637,21 @@ def submit_exam_session(
             model_answer=q.model_answer,
             evaluation_guidelines=getattr(q, "evaluation_guidelines", None) or q.expected_answer,
             is_correct=is_correct,
-            ai_feedback=ai_feedback
+            is_flagged=ans.is_flagged if ans else False,
+            ai_feedback=ai_feedback,
+            examiner_feedback=ans.examiner_feedback if ans else None
         )
         question_breakdown.append(qb)
 
     total_obtained_marks = max(0.0, round(total_obtained_marks, 2))
     percentage = round((total_obtained_marks / total_possible_marks * 100), 2) if total_possible_marks > 0 else 0.0
-    passed = percentage >= (exam.passing_marks if hasattr(exam, "passing_marks") and exam.passing_marks else 40.0)
+    pass_threshold = getattr(exam, "passing_marks", None) or 40.0
+    passed = percentage >= pass_threshold
+
+    # Proctoring score
+    proctor_events = session.proctor_events or []
+    integrity_score, viol_count, breakdown = calculate_integrity_score(proctor_events)
+    suspicion_score = max(0.0, min(100.0, round(100.0 - integrity_score, 1)))
 
     # Upsert into results table
     result = db.query(Result).filter(
@@ -614,27 +663,38 @@ def submit_exam_session(
         result = Result(
             exam_id=exam.id,
             student_id=current_user.id,
+            session_id=session.id,
             total_marks=total_possible_marks,
             obtained_marks=total_obtained_marks,
             percentage=percentage,
+            passing_status=passed,
+            correct_answers_count=correct_count,
+            wrong_answers_count=wrong_count,
+            unanswered_count=unanswered_count,
+            subjective_marks=subjective_marks_sum,
+            suspicion_score=suspicion_score,
             is_approved=False,
+            is_published=False,
             created_at=now,
             updated_at=now
         )
         db.add(result)
     else:
+        result.session_id = session.id
         result.total_marks = total_possible_marks
         result.obtained_marks = total_obtained_marks
         result.percentage = percentage
-        result.is_approved = False
+        result.passing_status = passed
+        result.correct_answers_count = correct_count
+        result.wrong_answers_count = wrong_count
+        result.unanswered_count = unanswered_count
+        result.subjective_marks = subjective_marks_sum
+        result.suspicion_score = suspicion_score
         result.updated_at = now
 
     db.commit()
     db.refresh(result)
 
-    # Calculate proctoring summary
-    proctor_events = session.proctor_events or []
-    integrity_score, viol_count, breakdown = calculate_integrity_score(proctor_events)
     recent_events = []
     for ev in proctor_events[-10:]:
         ev_type = ev.event_type if isinstance(ev.event_type, ProctorEventType) else (
@@ -672,6 +732,7 @@ def submit_exam_session(
         obtained_marks=total_obtained_marks,
         percentage=percentage,
         passed=passed,
+        passing_status=passed,
         status=session.status,
         started_at=session.started_at,
         submitted_at=session.submitted_at,
@@ -690,7 +751,9 @@ def submit_exam_session(
         is_approved=False,
         approved_at=None,
         approved_by_name=None,
-        approval_notes="Your examination has been submitted and is currently pending review & approval by the faculty examiner."
+        approval_notes="Your examination has been submitted and is currently pending review & approval by the faculty examiner.",
+        is_published=False,
+        published_at=None
     )
 
 
@@ -727,6 +790,7 @@ def get_session_result(
     ).first()
 
     is_approved = result.is_approved if result else False
+    is_published = result.is_published if result else False
 
     answers_map = {ans.question_id: ans for ans in session.answers}
     sorted_eqs = sorted(exam.exam_questions, key=lambda x: x.question_order or 1)
@@ -762,18 +826,20 @@ def get_session_result(
         if is_correct:
             correct_count += 1
 
-        feedback = "Evaluated response."
-        if q.question_type == QuestionType.MCQ:
-            feedback = "Correct selection." if is_correct else "Incorrect selection."
-        elif q.question_type == QuestionType.MULTI_SELECT:
-            feedback = "Matching multiple choice answers." if is_correct else "Partial or incorrect choices."
-        elif q.question_type in (QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER):
-            feedback = f"AI Evaluated: {marks_awarded}/{q_marks} Marks awarded based on model criteria."
-        elif q.question_type == QuestionType.IMAGE_UPLOAD:
-            feedback = "Handwritten diagram evaluated."
+        feedback = ans.examiner_feedback if (ans and ans.examiner_feedback) else (ans.ai_justification if (ans and ans.ai_justification) else "Evaluated response.")
+        if not feedback or feedback == "Evaluated response.":
+            if q.question_type == QuestionType.MCQ:
+                feedback = "Correct selection." if is_correct else "Incorrect selection."
+            elif q.question_type == QuestionType.MULTI_SELECT:
+                feedback = "Matching multiple choice answers." if is_correct else "Partial or incorrect choices."
+            elif q.question_type in (QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER):
+                feedback = f"AI Evaluated: {marks_awarded}/{q_marks} Marks awarded based on criteria."
+            elif q.question_type == QuestionType.IMAGE_UPLOAD:
+                feedback = "Handwritten diagram evaluated."
 
         question_breakdown.append(
             QuestionResultBreakdown(
+                answer_id=ans.id if ans else None,
                 question_id=q.id,
                 order=eq.question_order or (idx + 1),
                 question_text=q.question_text,
@@ -790,14 +856,17 @@ def get_session_result(
                 model_answer=q.model_answer,
                 evaluation_guidelines=getattr(q, "evaluation_guidelines", None) or q.expected_answer,
                 is_correct=is_correct,
-                ai_feedback=feedback
+                is_flagged=ans.is_flagged if ans else False,
+                ai_feedback=ans.ai_justification or feedback,
+                examiner_feedback=ans.examiner_feedback if ans else None
             )
         )
 
     obtained = result.obtained_marks if result else total_obtained_marks
     total_m = result.total_marks if result else total_possible_marks
     percentage = result.percentage if result else (round((obtained / total_m) * 100, 2) if total_m > 0 else 0.0)
-    passed = percentage >= 40.0
+    pass_threshold = getattr(exam, "passing_marks", None) or 40.0
+    passed = percentage >= pass_threshold
 
     proctor_events = session.proctor_events or []
     integrity_score, viol_count, breakdown = calculate_integrity_score(proctor_events)
@@ -840,6 +909,7 @@ def get_session_result(
             obtained_marks=obtained,
             percentage=percentage,
             passed=passed,
+            passing_status=passed,
             status=session.status,
             started_at=session.started_at,
             submitted_at=session.submitted_at,
@@ -858,7 +928,9 @@ def get_session_result(
             is_approved=False,
             approved_at=None,
             approved_by_name=None,
-            approval_notes=result.approval_notes if (result and result.approval_notes) else "Your examination has been submitted and is currently pending evaluation & approval by the faculty examiner."
+            approval_notes=result.approval_notes if (result and result.approval_notes) else "Your examination has been submitted and is currently pending evaluation & approval by the faculty examiner.",
+            is_published=False,
+            published_at=None
         )
 
     return ExamResultDetailResponse(
@@ -876,6 +948,7 @@ def get_session_result(
         obtained_marks=obtained,
         percentage=percentage,
         passed=passed,
+        passing_status=passed,
         status=session.status,
         started_at=session.started_at,
         submitted_at=session.submitted_at,
@@ -894,7 +967,9 @@ def get_session_result(
         is_approved=is_approved,
         approved_at=result.approved_at if result else None,
         approved_by_name=result.approver.name if (result and result.approver) else None,
-        approval_notes=result.approval_notes if result else None
+        approval_notes=result.approval_notes if result else None,
+        is_published=is_published,
+        published_at=result.published_at if result else None
     )
 
 
@@ -926,7 +1001,7 @@ def get_exam_submissions(
         tot_m = res.total_marks if res else 100.0
         obt_m = res.obtained_marks if res else 0.0
         pct = res.percentage if res else 0.0
-        passed = pct >= 40.0
+        passed = pct >= (getattr(sess.exam, "passing_marks", None) or 40.0) if sess.exam else (pct >= 40.0)
         is_app = res.is_approved if res else False
 
         submissions.append(
@@ -981,9 +1056,12 @@ def approve_session_result(
     if not result:
         raise HTTPException(status_code=404, detail="Result record not found for this session.")
 
+    now = datetime.now(timezone.utc)
     result.is_approved = True
+    result.is_published = True
+    result.published_at = now
     result.approved_by = current_user.id
-    result.approved_at = datetime.now(timezone.utc)
+    result.approved_at = now
     if payload and payload.notes:
         result.approval_notes = payload.notes
     else:
@@ -997,6 +1075,7 @@ def approve_session_result(
         "message": f"Result for student #{session.student_id} approved and released successfully.",
         "result_id": result.id,
         "is_approved": True,
+        "is_published": True,
         "approved_at": result.approved_at,
         "approved_by": current_user.name
     }
@@ -1022,6 +1101,8 @@ def approve_all_exam_results(
     for r in results:
         if not r.is_approved:
             r.is_approved = True
+            r.is_published = True
+            r.published_at = now
             r.approved_by = current_user.id
             r.approved_at = now
             if payload and payload.notes:
@@ -1050,7 +1131,7 @@ def override_answer_grade(
 ):
     """
     Manual score adjustment by Examiner/Admin for subjective or image upload answers.
-    Recalculates student's overall Result record.
+    Recalculates student's overall Result record and returns it to review state if updated.
     """
     answer = db.query(Answer).options(
         joinedload(Answer.session).joinedload(ExamSession.exam)
@@ -1060,6 +1141,9 @@ def override_answer_grade(
         raise HTTPException(status_code=404, detail="Answer record not found.")
 
     answer.marks_awarded = payload.marks_awarded
+    if payload.feedback:
+        answer.examiner_feedback = payload.feedback.strip()
+    answer.is_evaluated = True
     db.commit()
 
     # Recalculate Result total for this student & exam
@@ -1076,6 +1160,8 @@ def override_answer_grade(
         result.obtained_marks = round(new_obtained, 2)
         if result.total_marks > 0:
             result.percentage = round((new_obtained / result.total_marks) * 100, 2)
+            pass_thresh = getattr(session.exam, "passing_marks", None) or 40.0
+            result.passing_status = (result.percentage >= pass_thresh)
         result.updated_at = datetime.now(timezone.utc)
         db.commit()
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from app.core.database import get_db
 from app.models.user import User
 from app.enums.enums import UserRole, ApprovalStatus
@@ -17,6 +17,19 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
             detail="Password and Confirm Password do not match."
         )
 
+    if len(payload.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long."
+        )
+
+    clean_email = payload.email.lower().strip()
+    if "@" not in clean_email or "." not in clean_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please provide a valid email address."
+        )
+
     # Disallow direct admin registration
     if payload.role == UserRole.ADMIN:
         raise HTTPException(
@@ -25,12 +38,23 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         )
 
     # Check if email exists
-    existing_email = db.query(User).filter(User.email == payload.email.lower().strip()).first()
+    existing_email = db.query(User).filter(func.lower(User.email) == clean_email).first()
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="An account with this email address already exists."
         )
+
+    clean_reg_num = payload.register_number.strip().upper() if payload.register_number else None
+
+    # Check if register number exists if provided
+    if clean_reg_num:
+        existing_reg = db.query(User).filter(func.upper(User.register_number) == clean_reg_num).first()
+        if existing_reg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"An account with Register Number '{clean_reg_num}' already exists."
+            )
 
     # Determine initial approval status based on role:
     # - STUDENT: APPROVED (Active immediately)
@@ -47,7 +71,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
     new_user = User(
         name=payload.name.strip(),
-        email=payload.email.lower().strip(),
+        email=clean_email,
+        register_number=clean_reg_num,
+        department=payload.department.strip() if payload.department else "Computer Science & Engineering",
+        year=payload.year.strip() if payload.year else ("1st Year" if payload.role == UserRole.STUDENT else "Faculty Member"),
         password_hash=hash_password(payload.password),
         role=payload.role,
         approval_status=initial_status,
@@ -68,10 +95,15 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    identifier = payload.identifier.strip().lower()
+    identifier = payload.identifier.strip()
     
-    # Search by email
-    user = db.query(User).filter(User.email == identifier).first()
+    # Search by email OR register number
+    user = db.query(User).filter(
+        or_(
+            func.lower(User.email) == identifier.lower(),
+            func.upper(User.register_number) == identifier.upper()
+        )
+    ).first()
 
     if not user:
         raise HTTPException(

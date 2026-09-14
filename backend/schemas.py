@@ -43,6 +43,9 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
+    register_number: Optional[str] = None
+    department: Optional[str] = None
+    year: Optional[str] = None
     role: UserRole
     approval_status: ApprovalStatus
     approved_by: Optional[int] = None
@@ -122,6 +125,7 @@ class QuestionCreate(BaseModel):
     question_text: str = Field(..., min_length=5)
     question_type: QuestionType
     subject: str = Field(..., min_length=2)
+    topic: Optional[str] = None
     difficulty: DifficultyLevel = DifficultyLevel.MEDIUM
     marks: float = Field(default=1.0, ge=0.5)
     negative_marks: float = Field(default=0.0, ge=0.0)
@@ -136,6 +140,7 @@ class QuestionUpdate(BaseModel):
     question_text: Optional[str] = None
     question_type: Optional[QuestionType] = None
     subject: Optional[str] = None
+    topic: Optional[str] = None
     difficulty: Optional[DifficultyLevel] = None
     marks: Optional[float] = None
     negative_marks: Optional[float] = None
@@ -149,6 +154,7 @@ class QuestionResponse(BaseModel):
     question_text: str
     question_type: QuestionType
     subject: str
+    topic: Optional[str] = None
     difficulty: DifficultyLevel
     marks: float
     negative_marks: float
@@ -368,6 +374,8 @@ class ExamSessionStartResponse(BaseModel):
     total_marks: float
     passing_marks: float
     started_at: datetime
+    server_time: Optional[datetime] = None
+    remaining_seconds: Optional[int] = None
     status: SessionStatus
     questions_count: int
     questions: List[ExamQuestionSanitized] = Field(default_factory=list)
@@ -379,6 +387,7 @@ class SaveAnswerRequest(BaseModel):
     selected_option_ids: Optional[List[int]] = None
     text_answer: Optional[str] = None
     image_url: Optional[str] = None
+    is_flagged: Optional[bool] = False
 
 class SaveAnswerResponse(BaseModel):
     success: bool
@@ -405,6 +414,7 @@ class SubmitExamRequest(BaseModel):
     final_confirmation: bool = True
 
 class QuestionResultBreakdown(BaseModel):
+    answer_id: Optional[int] = None
     question_id: int
     order: int
     question_text: str
@@ -421,7 +431,9 @@ class QuestionResultBreakdown(BaseModel):
     model_answer: Optional[str] = None
     evaluation_guidelines: Optional[str] = None
     is_correct: Optional[bool] = None
+    is_flagged: Optional[bool] = False
     ai_feedback: Optional[str] = None
+    examiner_feedback: Optional[str] = None
 
 class ProctoringSummary(BaseModel):
     total_events: int
@@ -445,6 +457,7 @@ class ExamResultDetailResponse(BaseModel):
     obtained_marks: float
     percentage: float
     passed: bool
+    passing_status: Optional[bool] = None
     status: SessionStatus
     started_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
@@ -455,11 +468,13 @@ class ExamResultDetailResponse(BaseModel):
     question_breakdown: List[QuestionResultBreakdown] = Field(default_factory=list)
     proctoring_summary: ProctoringSummary
     
-    # Approval status
+    # Approval & Publishing status
     is_approved: bool = False
     approved_at: Optional[datetime] = None
     approved_by_name: Optional[str] = None
     approval_notes: Optional[str] = None
+    is_published: bool = False
+    published_at: Optional[datetime] = None
 
 class StudentExamSubmissionListItem(BaseModel):
     session_id: int

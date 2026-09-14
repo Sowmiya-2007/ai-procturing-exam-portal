@@ -82,31 +82,6 @@ def get_student_dashboard(current_user: User = Depends(get_current_user), db: Se
             "created_at": ex.created_at.isoformat() if ex.created_at else None
         })
 
-    # Fallback default exams if none in database yet
-    if not upcoming_exams:
-        upcoming_exams = [
-            {
-                "id": 1,
-                "code": "EXAM-2026-AI01",
-                "title": "Artificial Intelligence & Machine Learning - Midterm Examination",
-                "subject": "Artificial Intelligence",
-                "description": "Standard departmental assessment covering Neural Networks and Optimization.",
-                "duration_minutes": 60,
-                "total_marks": 100,
-                "passing_marks": 40.0,
-                "total_questions": 5,
-                "status": "Available",
-                "exam_status": "PUBLISHED",
-                "creator_name": "Department of AI & CSE",
-                "session_status": None,
-                "session_token": None,
-                "is_approved": False,
-                "proctoring_enabled": True,
-                "webcam_monitoring": True,
-                "gaze_tracking": True
-            }
-        ]
-
     # Student's past assessment results summary
     completed_results = []
     for res in student_results:

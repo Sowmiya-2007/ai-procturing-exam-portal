@@ -17,13 +17,24 @@ class Result(Base):
     total_marks: Mapped[float] = mapped_column(Float, nullable=False)
     obtained_marks: Mapped[float] = mapped_column(Float, nullable=False)
     percentage: Mapped[float] = mapped_column(Float, nullable=False)
+    passing_status: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     
-    # Approval workflow fields
+    # Detailed breakdown statistics
+    session_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    correct_answers_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    wrong_answers_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    unanswered_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    subjective_marks: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    suspicion_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    
+    # Approval & Publishing workflow fields
     is_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     approved_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     approval_notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 

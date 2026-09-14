@@ -23,6 +23,7 @@ class Exam(Base):
     randomization_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     negative_marking_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     default_negative_marks: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    passing_marks: Mapped[Optional[float]] = mapped_column(Float, default=40.0, nullable=True)
     
     start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

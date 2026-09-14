@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, Any, TYPE_CHECKING
-from sqlalchemy import Integer, String, Float, Text, DateTime, ForeignKey, UniqueConstraint, JSON
+from sqlalchemy import Integer, String, Float, Text, DateTime, ForeignKey, UniqueConstraint, JSON, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -17,7 +17,16 @@ class Answer(Base):
     selected_option_ids: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     text_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    is_flagged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # Grading & Evaluation
     marks_awarded: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ai_suggested_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ai_justification: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ai_matched_points: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    ai_missing_points: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    examiner_feedback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_evaluated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

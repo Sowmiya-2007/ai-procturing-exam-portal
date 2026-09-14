@@ -79,8 +79,8 @@ def setup_flow_data():
     ])
     db.commit()
 
-    examiner_token = create_access_token(data={"sub": examiner.email, "role": examiner.role.value, "approval_status": examiner.approval_status.value})
-    student_token = create_access_token(data={"sub": student.email, "role": student.role.value, "approval_status": student.approval_status.value})
+    examiner_token = create_access_token(data={"sub": str(examiner.id), "role": examiner.role.value, "approval_status": examiner.approval_status.value})
+    student_token = create_access_token(data={"sub": str(student.id), "role": student.role.value, "approval_status": student.approval_status.value})
 
     yield {
         "db": db,
@@ -156,7 +156,7 @@ def test_examiner_creates_exam_and_student_sees_available(setup_flow_data):
     assert "session_token" in start_data
     session_token = start_data["session_token"]
     assert len(start_data["questions"]) == 1
-    assert start_data["questions"][0]["id"] == data["question"].id
+    assert start_data["questions"][0]["question_id"] == data["question"].id
 
     # 4. Student dashboard now shows exam as "In Progress"
     dash_in_prog = client.get("/api/student/dashboard", headers=student_headers).json()

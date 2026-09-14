@@ -73,17 +73,25 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
 
         setSessionData(data);
 
-        // Populate existing saved answers
+        // Populate existing saved answers and flagged states
         const initialAnswers = {};
+        const initialFlags = new Set();
         if (data.existing_answers) {
           Object.keys(data.existing_answers).forEach((qId) => {
-            initialAnswers[Number(qId)] = data.existing_answers[qId];
+            const ansObj = data.existing_answers[qId];
+            initialAnswers[Number(qId)] = ansObj;
+            if (ansObj.is_flagged) {
+              initialFlags.add(Number(qId));
+            }
           });
         }
         setAnswers(initialAnswers);
+        setMarkedForReview(initialFlags);
 
-        // Calculate initial remaining time from started_at and duration
-        if (data.started_at && data.duration_minutes) {
+        // Calculate initial remaining time directly from server remaining_seconds
+        if (data.remaining_seconds !== undefined && data.remaining_seconds !== null) {
+          setTimeLeftSeconds(data.remaining_seconds);
+        } else if (data.started_at && data.duration_minutes) {
           const startTime = new Date(data.started_at).getTime();
           const durationMs = data.duration_minutes * 60 * 1000;
           const elapsedSecs = Math.floor((Date.now() - startTime) / 1000);
@@ -309,11 +317,23 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
   const toggleMarkForReview = (questionId) => {
     setMarkedForReview(prev => {
       const next = new Set(prev);
+      const isFlagged = !next.has(questionId);
       if (next.has(questionId)) {
         next.delete(questionId);
       } else {
         next.add(questionId);
       }
+      
+      // Persist flag state to backend
+      const curAns = answers[questionId] || {};
+      api.saveSessionAnswer(sessionToken, {
+        question_id: questionId,
+        selected_option_ids: curAns.selected_option_ids || null,
+        text_answer: curAns.text_answer || null,
+        image_url: curAns.image_url || null,
+        is_flagged: isFlagged
+      }).catch(err => console.error("Error saving flag status:", err));
+
       return next;
     });
   };
@@ -329,7 +349,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
 
   // 8. Snapshot Capture for Handwritten Image Questions
   const captureWebcamSnapshot = (questionId) => {
-    if (videoRef.current && canvasRef.current) {
+    if (videoRef.current && canvasRef.current && cameraActive) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth || 640;
@@ -341,23 +361,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
       updateAnswer(questionId, { image_url: dataUrl });
       showToast("Handwritten diagram photo captured via webcam!", "success");
     } else {
-      // Simulated upload if no real stream
-      const mockCanvas = document.createElement("canvas");
-      mockCanvas.width = 600;
-      mockCanvas.height = 400;
-      const ctx = mockCanvas.getContext("2d");
-      ctx.fillStyle = "#1e293b";
-      ctx.fillRect(0, 0, 600, 400);
-      ctx.fillStyle = "#38bdf8";
-      ctx.font = "20px sans-serif";
-      ctx.fillText("Handwritten Diagram - Verified Camera Capture", 40, 180);
-      ctx.font = "14px monospace";
-      ctx.fillStyle = "#94a3b8";
-      ctx.fillText(`Timestamp: ${new Date().toISOString()}`, 40, 220);
-      const dataUrl = mockCanvas.toDataURL("image/jpeg", 0.85);
-
-      updateAnswer(questionId, { image_url: dataUrl });
-      showToast("Handwritten diagram snapshot recorded!", "success");
+      showToast("Live webcam stream is not active. Please click 'Choose File / Upload Diagram' below to attach your image.", "warning");
     }
   };
 
@@ -600,12 +604,12 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
       )}
 
       {/* Main Examination Hall Grid */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.25rem", padding: "1.25rem", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 380px", gap: "1.75rem", padding: "1.75rem 2.25rem", overflow: "hidden" }}>
         
         {/* Left Column: Active Question Workspace */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", overflowY: "auto" }}>
           {currentQ ? (
-            <div className="glass-card" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "1.75rem", background: "rgba(15, 23, 42, 0.85)", border: "1px solid rgba(99, 102, 241, 0.25)" }}>
+            <div className="glass-card" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "2.25rem 2.5rem", background: "rgba(15, 23, 42, 0.85)", border: "1px solid rgba(99, 102, 241, 0.25)" }}>
               {/* Question Header Bar */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "1.25rem", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", marginBottom: "1.5rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -665,8 +669,8 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
               </div>
 
               {/* Question Text */}
-              <div style={{ marginBottom: "2rem" }}>
-                <h2 style={{ fontSize: "1.15rem", fontWeight: 600, color: "#f8fafc", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+              <div style={{ marginBottom: "2.25rem" }}>
+                <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#f8fafc", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>
                   {currentQ.question_text}
                 </h2>
               </div>
@@ -676,7 +680,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                 
                 {/* 1. MCQ (Single Choice) */}
                 {currentQ.question_type === "MCQ" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {currentQ.options.map((opt, oIdx) => {
                       const isSelected = (currentAnswer.selected_option_ids || [])[0] === opt.id;
                       const letter = String.fromCharCode(65 + oIdx);
@@ -688,10 +692,10 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: "1rem",
-                            padding: "1rem 1.25rem",
+                            gap: "1.25rem",
+                            padding: "1.2rem 1.5rem",
                             borderRadius: "var(--radius-md)",
-                            background: isSelected ? "rgba(99, 102, 241, 0.2)" : "rgba(30, 41, 59, 0.4)",
+                            background: isSelected ? "rgba(99, 102, 241, 0.22)" : "rgba(30, 41, 59, 0.45)",
                             border: `1.5px solid ${isSelected ? "#6366f1" : "rgba(255, 255, 255, 0.08)"}`,
                             cursor: "pointer",
                             transition: "all 0.2s ease"
@@ -699,8 +703,8 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                         >
                           <div
                             style={{
-                              width: "32px",
-                              height: "32px",
+                              width: "36px",
+                              height: "36px",
                               borderRadius: "50%",
                               background: isSelected ? "#6366f1" : "rgba(255, 255, 255, 0.08)",
                               color: isSelected ? "#fff" : "var(--text-muted)",
@@ -708,15 +712,15 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                               alignItems: "center",
                               justifyContent: "center",
                               fontWeight: 700,
-                              fontSize: "0.9rem"
+                              fontSize: "0.95rem"
                             }}
                           >
                             {letter}
                           </div>
-                          <div style={{ flex: 1, fontSize: "0.95rem", color: isSelected ? "#fff" : "#cbd5e1" }}>
+                          <div style={{ flex: 1, fontSize: "1rem", color: isSelected ? "#fff" : "#cbd5e1" }}>
                             {opt.option_text}
                           </div>
-                          {isSelected && <Check size={18} color="#818cf8" />}
+                          {isSelected && <Check size={20} color="#818cf8" />}
                         </div>
                       );
                     })}
@@ -1079,13 +1083,13 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
           </div>
 
           {/* Question Navigation Palette */}
-          <div className="glass-card" style={{ flex: 1, padding: "1.25rem", background: "rgba(15, 23, 42, 0.9)" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 800, marginBottom: "0.75rem" }}>
+          <div className="glass-card" style={{ flex: 1, padding: "1.75rem", background: "rgba(15, 23, 42, 0.9)" }}>
+            <h3 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: "1rem" }}>
               Question Palette ({answeredCount}/{questions.length} Answered)
             </h3>
 
             {/* Progress Bar */}
-            <div style={{ width: "100%", height: "6px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "1rem" }}>
+            <div style={{ width: "100%", height: "8px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "4px", overflow: "hidden", marginBottom: "1.25rem" }}>
               <div
                 style={{
                   height: "100%",
@@ -1097,7 +1101,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
             </div>
 
             {/* Filter Tabs */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.25rem", marginBottom: "1rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.45rem", marginBottom: "1.25rem" }}>
               {[
                 { key: "all", label: "All" },
                 { key: "answered", label: "Done" },
@@ -1108,13 +1112,13 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                   key={tab.key}
                   onClick={() => setFilterType(tab.key)}
                   style={{
-                    padding: "0.3rem 0.2rem",
-                    fontSize: "0.7rem",
+                    padding: "0.5rem 0.3rem",
+                    fontSize: "0.785rem",
                     borderRadius: "var(--radius-sm)",
                     background: filterType === tab.key ? "#6366f1" : "rgba(30, 41, 59, 0.5)",
                     border: "none",
                     color: filterType === tab.key ? "#fff" : "#94a3b8",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: "pointer"
                   }}
                 >
@@ -1124,7 +1128,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
             </div>
 
             {/* Number Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem", marginBottom: "1.25rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.65rem", marginBottom: "1.5rem" }}>
               {questions.map((q, idx) => {
                 const status = getQuestionStatus(q);
                 const isCurrent = currentQIndex === idx;
@@ -1154,20 +1158,20 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                     key={q.question_id}
                     onClick={() => setCurrentQIndex(idx)}
                     style={{
-                      height: "38px",
-                      borderRadius: "var(--radius-sm)",
+                      height: "44px",
+                      borderRadius: "var(--radius-md)",
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
                       color: textColor,
                       fontWeight: 800,
-                      fontSize: "0.85rem",
+                      fontSize: "0.95rem",
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       position: "relative",
                       transition: "all 0.15s ease",
-                      boxShadow: isCurrent ? "0 0 10px rgba(99, 102, 241, 0.5)" : "none"
+                      boxShadow: isCurrent ? "0 0 12px rgba(99, 102, 241, 0.6)" : "none"
                     }}
                   >
                     {idx + 1}

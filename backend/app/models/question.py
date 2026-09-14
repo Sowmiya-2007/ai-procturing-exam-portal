@@ -15,11 +15,13 @@ class Question(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     subject: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    topic: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
     question_type: Mapped[QuestionType] = mapped_column(SQLEnum(QuestionType, name="question_type_enum"), nullable=False, index=True)
     difficulty: Mapped[DifficultyLevel] = mapped_column(SQLEnum(DifficultyLevel, name="difficulty_level_enum"), nullable=False, index=True)
     expected_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     model_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    evaluation_guidelines: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     max_marks: Mapped[float] = mapped_column(Float, nullable=False)
     negative_marks: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
