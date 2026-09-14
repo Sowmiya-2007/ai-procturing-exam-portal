@@ -1,4 +1,4 @@
-# 🛡️ AI Proctoring Exam Portal
+# 🛡️ AI-Based Intelligent Examination Platform with Automated Proctoring & Candidate Performance Analysis
 
 An Intelligent, Full-Stack Examination & AI-Proctoring Platform built with **FastAPI**, **React (Vite)**, **SQLAlchemy**, and modern real-time candidate monitoring.
 
@@ -7,26 +7,26 @@ An Intelligent, Full-Stack Examination & AI-Proctoring Platform built with **Fas
 ## ✨ Key Features
 
 - 👨‍💼 **Multi-Role Authentication & Access Control:**
-  - **Admin**: Review & approve/reject examiners, system configuration, audit logs.
-  - **Examiner**: Question bank management (Multiple Choice, Multiple Response, True/False, Coding, Descriptive), AI/Document question extraction, exam creation, live proctoring dashboard.
+  - **Admin**: Review & approve/reject examiners, candidate governance, system configuration, audit logs.
+  - **Examiner**: Question bank management (Single MCQ, Multi-Select, Short Answer, Long Form with Rubrics, Handwritten Image Diagrams), AI/Document question extraction, exam creation with auto-randomization, candidate score audit & overrides.
   - **Student**: Candidate registration, exam schedule viewing, secure exam hall with AI proctoring telemetry.
 - 👁️ **AI Proctoring & Integrity Telemetry:**
   - Real-time tab-switching / window blur detection
   - Fullscreen enforcement
   - Multi-face and missing-face alerts
   - Live proctor event logging and audit trails
-- 📝 **Rich Question Bank Engine:**
+- 📝 **Rich 5-Type Question Bank Engine:**
   - Multiple Choice (Single Correct)
   - Multiple Choice (Multiple Correct)
-  - True / False
-  - Coding Questions (with automated test suites)
-  - Short / Long Descriptive Questions
+  - Short Subjective / Text Formulation
+  - Long Descriptive / Comprehensive Essay (with Rubric guidelines)
+  - Handwritten Diagram / Image Uploads (with Webcam snapshot & Upload support)
 - 📄 **Automated Document Question Extractor:**
-  - Import exam questions seamlessly from text/documents.
+  - Import exam questions seamlessly from text, Word, Excel, and PDFs.
 - 📊 **Automated & Manual Evaluation:**
   - Instant scoring for objective questions.
-  - Examiner evaluation studio for descriptive responses.
-  - Certificate/Result generation and analytics.
+  - Examiner evaluation studio for descriptive responses and grade overrides.
+  - Candidate performance scorecards and analytics.
 
 ---
 
@@ -41,8 +41,10 @@ ai-procturing-exam-portal/
 │   │   ├── models/           # SQLAlchemy ORM Models
 │   │   └── ...
 │   ├── routers/              # API Endpoints (Auth, Admin, Exams, Questions, etc.)
+│   ├── tests/                # Pytest Test Suite
 │   ├── main.py               # FastAPI entry point
 │   ├── seed_db.py            # Database seeder with sample data
+│   ├── sync_db.py            # SQLite schema synchronizer
 │   └── requirements.txt      # Python dependencies
 ├── frontend/                 # React (Vite) Single Page Application
 │   ├── src/
@@ -59,33 +61,30 @@ ai-procturing-exam-portal/
 
 ## 🚀 Quick Start
 
-### Option 1: Local Development
+### Prerequisites
+- Python 3.10+
+- Node.js 18+
+- Docker & Docker Compose (Optional)
 
-#### 1. Backend Setup
-```bash
-cd backend
-python -m venv venv
-# Windows:
-.\venv\Scripts\activate
-# Linux/macOS:
-source venv/bin/activate
+### Option 1: Local Setup
 
-pip install -r requirements.txt
-python seed_db.py
-python -m uvicorn main:app --host 127.0.0.1 --port 8001 --reload
-```
-- **Backend API:** `http://localhost:8001`
-- **Swagger Docs:** `http://localhost:8001/docs`
+1. **Backend:**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   python sync_db.py
+   python seed_db.py
+   uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+   ```
 
-#### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
-- **Frontend App:** `http://localhost:5173`
-
----
+2. **Frontend:**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   - Access web app: `http://localhost:5173`
+   - Access API & Swagger Docs: `http://localhost:8001/docs`
 
 ### Option 2: Docker Compose
 ```bash
@@ -98,11 +97,12 @@ docker-compose up --build
 
 ## 🔑 Demo Login Accounts
 
-| Role | Email | Password |
-| :--- | :--- | :--- |
-| **Admin** | `admin@examai.edu` | `Admin@123` |
-| **Examiner** | `examiner@examai.edu` | `Examiner@123` |
-| **Student** | `student@examai.edu` | `Student@123` |
+| Role | Email | Password | Access Level & Notes |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin@examai.edu` | `Admin@123` | Examiner approvals, question bank, exam monitoring |
+| **Examiner** | `examiner@examai.edu` | `Examiner@123` | Create & publish exams, question bank, evaluate results |
+| **Pending Examiner** | `pending.examiner@examai.edu` | `Examiner@123` | Demonstrates the approval gatekeeper screen |
+| **Student** | `student@examai.edu` | `Student@123` | Take scheduled exams, real-time proctoring, view scorecards |
 
 ---
 
