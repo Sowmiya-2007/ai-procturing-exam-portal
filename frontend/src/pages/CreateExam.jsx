@@ -22,9 +22,10 @@ import {
   Video,
   EyeOff,
   FileSpreadsheet,
-  UploadCloud
+  UploadCloud,
+  Search
 } from "lucide-react";
-import { api } from "../services/api";
+import { api, formatError } from "../services/api";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { TypeBadge, DifficultyBadge } from "../components/StatusBadge";
@@ -37,6 +38,8 @@ export const CreateExam = ({ setCurrentView }) => {
   // Basic Exam State
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("Computer Science & Engineering");
+  const [customSubject, setCustomSubject] = useState("");
+  const [isCustomSubject, setIsCustomSubject] = useState(false);
   const [description, setDescription] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [examStatus, setExamStatus] = useState("PUBLISHED"); // PUBLISHED or DRAFT
@@ -56,18 +59,17 @@ export const CreateExam = ({ setCurrentView }) => {
 
   // Question Pool & Selected Questions
   const [selectedQuestions, setSelectedQuestions] = useState([]); // Array of { question, marks, order }
-  const [activeTab, setActiveTab] = useState("random"); // 'random' or 'manual'
+  const [activeTab, setActiveTab] = useState("random"); // 'random' | 'manual' | 'extractor'
   
   // Manual Question Browser State
   const [bankQuestions, setBankQuestions] = useState([]);
   const [loadingBank, setLoadingBank] = useState(false);
   const [bankSearch, setBankSearch] = useState("");
   const [bankTypeFilter, setBankTypeFilter] = useState("ALL");
+  const [bankSubjectFilter, setBankSubjectFilter] = useState("ALL");
   
-  // Submission
-  const [submitting, setSubmitting] = useState(false);
-
-  const subjectsList = [
+  // Dynamic Subjects from DB
+  const [availableSubjects, setAvailableSubjects] = useState([
     "Computer Science & Engineering",
     "Artificial Intelligence",
     "Data Structures",
@@ -76,27 +78,38 @@ export const CreateExam = ({ setCurrentView }) => {
     "Computer Architecture",
     "Cybersecurity",
     "Operating Systems"
-  ];
+  ]);
 
-  // Sync randomSubject default when subject changes
+  // Submission
+  const [submitting, setSubmitting] = useState(false);
+
+  // Load available subjects from question bank stats
   useEffect(() => {
-    if (subject && randomSubject === "ALL") {
-      setRandomSubject(subject);
-    }
-  }, [subject]);
+    api.getQuestionStats()
+      .then(stats => {
+        if (stats && stats.by_subject) {
+          const dbSubjects = Object.keys(stats.by_subject);
+          setAvailableSubjects(prev => {
+            const merged = Array.from(new Set([...prev, ...dbSubjects]));
+            return merged.filter(Boolean);
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Load question bank for manual picker
   const loadBankQuestions = async () => {
     setLoadingBank(true);
     try {
       const data = await api.getQuestions({ 
-        search: bankSearch,
+        search: bankSearch.trim() || undefined,
         question_type: bankTypeFilter !== "ALL" ? bankTypeFilter : undefined,
-        subject: subject !== "ALL" ? subject : undefined 
+        subject: bankSubjectFilter !== "ALL" ? bankSubjectFilter : undefined 
       });
       setBankQuestions(data || []);
     } catch (err) {
-      showToast(err.message, "error");
+      showToast(formatError(err, "Failed to load question bank"), "error");
     } finally {
       setLoadingBank(false);
     }
@@ -106,14 +119,14 @@ export const CreateExam = ({ setCurrentView }) => {
     if (activeTab === "manual") {
       loadBankQuestions();
     }
-  }, [activeTab, bankSearch, bankTypeFilter, subject]);
+  }, [activeTab, bankSearch, bankTypeFilter, bankSubjectFilter]);
 
-  // Handle Random Question Generation (Core Feature)
+  // Handle Random Question Generation
   const handleGenerateRandomQuestions = async () => {
     setIsGeneratingRandom(true);
     try {
       const payload = {
-        question_count: parseInt(randomCount) || 5,
+        question_count: Math.max(1, parseInt(randomCount) || 5),
         subject: randomSubject !== "ALL" ? randomSubject : undefined,
         difficulty: randomDifficulty !== "ALL" ? randomDifficulty : undefined,
         question_type: randomType !== "ALL" ? randomType : undefined
@@ -130,14 +143,14 @@ export const CreateExam = ({ setCurrentView }) => {
       // Format as selected questions
       const formatted = questions.map((q, idx) => ({
         question: q,
-        marks: q.marks || 2.0,
+        marks: parseFloat(q.marks) || 2.0,
         order: idx + 1
       }));
 
       setSelectedQuestions(formatted);
-      showToast(`Successfully selected ${formatted.length} random questions!`, "success");
+      showToast(`Successfully assembled ${formatted.length} randomized question(s) into blueprint!`, "success");
     } catch (err) {
-      showToast(err.message || "Failed to fetch random questions", "error");
+      showToast(formatError(err, "Failed to fetch random questions"), "error");
     } finally {
       setIsGeneratingRandom(false);
     }
@@ -146,12 +159,14 @@ export const CreateExam = ({ setCurrentView }) => {
   // Re-roll a single question
   const handleRerollSingle = async (indexToReplace) => {
     try {
-      const currentIds = selectedQuestions.map(sq => sq.question.id);
+      const currentIds = selectedQuestions.map(sq => sq.question?.id).filter(Boolean);
+      const targetQ = selectedQuestions[indexToReplace]?.question;
+      
       const payload = {
-        question_count: 3,
+        question_count: 5,
         subject: randomSubject !== "ALL" ? randomSubject : undefined,
-        difficulty: selectedQuestions[indexToReplace].question.difficulty,
-        question_type: selectedQuestions[indexToReplace].question.question_type
+        difficulty: targetQ?.difficulty || undefined,
+        question_type: targetQ?.question_type || undefined
       };
 
       const candidates = await api.getRandomQuestions(payload);
@@ -164,16 +179,16 @@ export const CreateExam = ({ setCurrentView }) => {
           updated[indexToReplace] = {
             ...updated[indexToReplace],
             question: fresh,
-            marks: fresh.marks || updated[indexToReplace].marks
+            marks: parseFloat(fresh.marks) || updated[indexToReplace].marks || 2.0
           };
           return updated;
         });
         showToast(`Question #${indexToReplace + 1} re-rolled with a fresh item.`, "info");
       } else {
-        showToast("No alternative unique questions found in pool.", "warning");
+        showToast("No alternative unique questions found in question pool.", "warning");
       }
     } catch (err) {
-      showToast(err.message, "error");
+      showToast(formatError(err, "Failed to re-roll question"), "error");
     }
   };
 
@@ -188,10 +203,10 @@ export const CreateExam = ({ setCurrentView }) => {
 
   // Toggle question from manual bank
   const handleToggleManualQuestion = (q) => {
-    const exists = selectedQuestions.some(sq => sq.question.id === q.id);
+    const exists = selectedQuestions.some(sq => sq.question?.id === q.id);
     if (exists) {
       setSelectedQuestions(prev => {
-        const updated = prev.filter(sq => sq.question.id !== q.id);
+        const updated = prev.filter(sq => sq.question?.id !== q.id);
         return updated.map((item, idx) => ({ ...item, order: idx + 1 }));
       });
     } else {
@@ -199,7 +214,7 @@ export const CreateExam = ({ setCurrentView }) => {
         ...prev,
         {
           question: q,
-          marks: q.marks || 2.0,
+          marks: parseFloat(q.marks) || 2.0,
           order: prev.length + 1
         }
       ]);
@@ -208,7 +223,7 @@ export const CreateExam = ({ setCurrentView }) => {
 
   // Handle individual marks change
   const handleMarksChange = (index, val) => {
-    const marksNum = parseFloat(val) || 0;
+    const marksNum = Math.max(0.5, parseFloat(val) || 1.0);
     setSelectedQuestions(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], marks: marksNum };
@@ -217,18 +232,22 @@ export const CreateExam = ({ setCurrentView }) => {
   };
 
   // Calculations
-  const totalMarks = selectedQuestions.reduce((sum, item) => sum + (parseFloat(item.marks) || 0), 0);
+  const totalMarks = Math.round(selectedQuestions.reduce((sum, item) => sum + (parseFloat(item.marks) || 1.0), 0) * 10) / 10;
   const passingMarks = Math.round(totalMarks * 0.4 * 10) / 10;
 
   // Handle extracted questions added directly to exam blueprint
   const handleExtractedQuestionsAdded = (questions) => {
+    if (!questions || questions.length === 0) return;
     const formatted = questions.map((q, idx) => ({
-      question: q.id ? q : { ...q, id: `ext_${Date.now()}_${idx}` },
+      question: q.id && typeof q.id === "number" ? q : { ...q, id: `ext_${Date.now()}_${idx}` },
       marks: parseFloat(q.marks) || 2.0,
       order: selectedQuestions.length + idx + 1
     }));
     setSelectedQuestions(prev => [...prev, ...formatted]);
   };
+
+  // Effective Subject
+  const effectiveSubject = (isCustomSubject ? customSubject.trim() : subject.trim()) || "Computer Science & Engineering";
 
   // Submit Exam
   const handleSaveExam = async (statusOverride = null) => {
@@ -237,8 +256,10 @@ export const CreateExam = ({ setCurrentView }) => {
       return;
     }
 
-    if (selectedQuestions.length === 0) {
-      showToast("Please select at least 1 question for the exam using the Random Question Generator, Manual picker, or Document Extractor.", "warning");
+    const finalStatus = statusOverride || examStatus;
+
+    if (finalStatus === "PUBLISHED" && selectedQuestions.length === 0) {
+      showToast("Please select at least 1 question before publishing the exam, or click 'Save as Draft'.", "warning");
       return;
     }
 
@@ -247,59 +268,82 @@ export const CreateExam = ({ setCurrentView }) => {
       let currentSelected = [...selectedQuestions];
       
       // Auto-persist any extracted questions that were not yet committed to DB
-      const unpersisted = currentSelected.filter(sq => typeof sq.question.id === "string" || !sq.question.id || String(sq.question.id).startsWith("ext_"));
+      const unpersisted = currentSelected.filter(sq => 
+        !sq.question?.id || 
+        typeof sq.question.id === "string" || 
+        String(sq.question.id).startsWith("ext_")
+      );
+
       if (unpersisted.length > 0) {
         showToast(`Auto-indexing ${unpersisted.length} extracted question(s) into Question Bank...`, "info");
         const batchPayload = {
           questions: unpersisted.map(sq => ({
-            question_text: sq.question.question_text,
-            question_type: sq.question.question_type,
-            subject: sq.question.subject || subject,
+            question_text: sq.question.question_text || "Untitled Question",
+            question_type: sq.question.question_type || "MCQ",
+            subject: sq.question.subject || effectiveSubject,
             difficulty: sq.question.difficulty || "MEDIUM",
-            marks: parseFloat(sq.marks) || 1.0,
-            negative_marks: parseFloat(sq.question.negative_marks) || 0.0,
+            marks: Math.max(0.5, parseFloat(sq.marks) || 1.0),
+            negative_marks: Math.max(0, parseFloat(sq.question.negative_marks) || 0.0),
             model_answer: sq.question.model_answer || undefined,
             evaluation_guidelines: sq.question.evaluation_guidelines || undefined,
             options: (sq.question.options || []).map(o => ({
-              option_text: o.option_text,
-              is_correct: o.is_correct
+              option_text: o.option_text || "Option",
+              is_correct: !!o.is_correct
             }))
           }))
         };
 
         const batchRes = await api.batchCreateQuestions(batchPayload);
-        if (batchRes.questions && batchRes.questions.length > 0) {
+        if (batchRes && batchRes.questions && batchRes.questions.length > 0) {
           let bIdx = 0;
           currentSelected = currentSelected.map(sq => {
-            if (typeof sq.question.id === "string" || !sq.question.id || String(sq.question.id).startsWith("ext_")) {
+            if (!sq.question?.id || typeof sq.question.id === "string" || String(sq.question.id).startsWith("ext_")) {
               const saved = batchRes.questions[bIdx++];
-              return { ...sq, question: saved };
+              if (saved) {
+                return { ...sq, question: saved, marks: sq.marks || saved.marks || 1.0 };
+              }
+              return null;
             }
             return sq;
-          });
+          }).filter(Boolean);
           setSelectedQuestions(currentSelected);
         }
       }
 
-      const finalStatus = statusOverride || examStatus;
+      // Ensure valid integer IDs for linking
+      const validLinkedQuestions = currentSelected
+        .filter(sq => sq.question && sq.question.id && typeof sq.question.id === "number")
+        .map((sq, idx) => ({
+          question_id: sq.question.id,
+          marks: parseFloat(sq.marks) || 1.0,
+          order: idx + 1
+        }));
+
+      if (finalStatus === "PUBLISHED" && validLinkedQuestions.length === 0) {
+        showToast("Please ensure questions are valid before publishing.", "warning");
+        setSubmitting(false);
+        return;
+      }
+
+      const durMinutes = Math.max(1, parseInt(durationMinutes) || 60);
+      const tabWarn = Math.max(1, parseInt(maxTabWarnings) || 3);
+      const calcTotMarks = validLinkedQuestions.length > 0 ? totalMarks : 100.0;
+      const calcPassMarks = validLinkedQuestions.length > 0 ? passingMarks : 40.0;
+
       const payload = {
         title: title.trim(),
-        subject: subject.trim(),
+        subject: effectiveSubject,
         description: description.trim() || undefined,
-        duration_minutes: parseInt(durationMinutes) || 60,
-        total_marks: totalMarks,
-        passing_marks: passingMarks,
+        duration_minutes: durMinutes,
+        total_marks: calcTotMarks,
+        passing_marks: calcPassMarks,
         status: finalStatus,
         proctoring_config: `proctoring=${proctoringEnabled}, webcam=${webcamEnabled}, gaze=${gazeTrackingEnabled}`,
         proctoring_enabled: proctoringEnabled,
         webcam_monitoring_enabled: webcamEnabled,
         gaze_tracking_enabled: gazeTrackingEnabled,
-        max_tab_switch_warnings: parseInt(maxTabWarnings) || 3,
-        questions: currentSelected.map((sq, idx) => ({
-          question_id: sq.question.id,
-          marks: parseFloat(sq.marks) || 1.0,
-          order: idx + 1
-        }))
+        max_tab_switch_warnings: tabWarn,
+        questions: validLinkedQuestions
       };
 
       const created = await api.createExam(payload);
@@ -310,7 +354,7 @@ export const CreateExam = ({ setCurrentView }) => {
       }
       setCurrentView("examiner_dashboard");
     } catch (err) {
-      showToast(err.message || "Failed to create exam", "error");
+      showToast(formatError(err, "Failed to create exam"), "error");
     } finally {
       setSubmitting(false);
     }
@@ -319,7 +363,7 @@ export const CreateExam = ({ setCurrentView }) => {
   return (
     <div className="page-container" style={{ paddingBottom: "4rem" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <button
             onClick={() => setCurrentView("examiner_dashboard")}
@@ -347,7 +391,7 @@ export const CreateExam = ({ setCurrentView }) => {
                 Create Examination Blueprint
               </h1>
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", margin: 0 }}>
-                Configure exam specifications, proctoring safeguards, and assemble questions via random generation
+                Configure exam specifications, proctoring safeguards, and assemble questions via random generation or document import
               </p>
             </div>
           </div>
@@ -401,16 +445,35 @@ export const CreateExam = ({ setCurrentView }) => {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
-                <label className="form-label">Subject / Discipline *</label>
-                <select
-                  className="form-control"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                >
-                  {subjectsList.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.35rem" }}>
+                  <label className="form-label" style={{ margin: 0 }}>Subject / Discipline *</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomSubject(!isCustomSubject)}
+                    style={{ background: "transparent", border: "none", color: "#818cf8", fontSize: "0.75rem", cursor: "pointer", textDecoration: "underline" }}
+                  >
+                    {isCustomSubject ? "Pick Standard" : "Custom Name"}
+                  </button>
+                </div>
+                {isCustomSubject ? (
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Enter custom subject..."
+                    value={customSubject}
+                    onChange={(e) => setCustomSubject(e.target.value)}
+                  />
+                ) : (
+                  <select
+                    className="form-control"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                  >
+                    {availableSubjects.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="form-group">
@@ -457,7 +520,7 @@ export const CreateExam = ({ setCurrentView }) => {
                 value={examStatus}
                 onChange={(e) => setExamStatus(e.target.value)}
               >
-                <option value="PUBLISHED">PUBLISHED (Active & Available to Students)</option>
+                <option value="PUBLISHED">PUBLISHED (Active & Available to Students in Portal)</option>
                 <option value="DRAFT">DRAFT (Saved as Draft Blueprint)</option>
               </select>
             </div>
@@ -544,7 +607,7 @@ export const CreateExam = ({ setCurrentView }) => {
           
           {/* Question Assembly Mode Tabs */}
           <div className="glass-card" style={{ padding: "1.5rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <Dices size={20} color="#fbbf24" />
                 <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700 }}>
@@ -558,7 +621,8 @@ export const CreateExam = ({ setCurrentView }) => {
                 background: "rgba(15, 23, 42, 0.6)",
                 padding: "0.25rem",
                 borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--border-color)"
+                border: "1px solid var(--border-color)",
+                flexWrap: "wrap"
               }}>
                 <button
                   type="button"
@@ -615,12 +679,12 @@ export const CreateExam = ({ setCurrentView }) => {
                     gap: "0.35rem"
                   }}
                 >
-                  <FileSpreadsheet size={14} /> Extract from File (Excel / Word / PDF)
+                  <FileSpreadsheet size={14} /> Document Extractor
                 </button>
               </div>
             </div>
 
-            {/* TAB 1: RANDOM QUESTION GENERATOR (CORE FEATURE) */}
+            {/* TAB 1: RANDOM QUESTION GENERATOR */}
             {activeTab === "random" && (
               <div style={{
                 background: "rgba(15, 23, 42, 0.5)",
@@ -644,8 +708,8 @@ export const CreateExam = ({ setCurrentView }) => {
                       value={randomSubject}
                       onChange={(e) => setRandomSubject(e.target.value)}
                     >
-                      <option value="ALL">All Subjects Pool</option>
-                      {subjectsList.map(s => (
+                      <option value="ALL">All Subjects (Universal Pool)</option>
+                      {availableSubjects.map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
@@ -726,7 +790,7 @@ export const CreateExam = ({ setCurrentView }) => {
                     fontWeight: 700
                   }}
                 >
-                  <Dices size={18} className={isGeneratingRandom ? "animate-spin" : ""} />
+                  <Dices size={18} className={isGeneratingRandom ? "spin-animation" : ""} />
                   {isGeneratingRandom ? "Synthesizing Random Question Set..." : "🎲 Generate Random Questions for Exam"}
                 </button>
               </div>
@@ -741,10 +805,10 @@ export const CreateExam = ({ setCurrentView }) => {
                 padding: "1rem",
                 marginBottom: "1rem"
               }}>
-                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
                   <input
                     type="text"
-                    placeholder="Search question pool..."
+                    placeholder="Search questions..."
                     className="form-control"
                     style={{ fontSize: "0.85rem" }}
                     value={bankSearch}
@@ -752,7 +816,18 @@ export const CreateExam = ({ setCurrentView }) => {
                   />
                   <select
                     className="form-control"
-                    style={{ fontSize: "0.85rem", width: "140px" }}
+                    style={{ fontSize: "0.85rem" }}
+                    value={bankSubjectFilter}
+                    onChange={(e) => setBankSubjectFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Subjects</option>
+                    {availableSubjects.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="form-control"
+                    style={{ fontSize: "0.85rem" }}
                     value={bankTypeFilter}
                     onChange={(e) => setBankTypeFilter(e.target.value)}
                   >
@@ -765,18 +840,18 @@ export const CreateExam = ({ setCurrentView }) => {
                   </select>
                 </div>
 
-                <div style={{ maxHeight: "200px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <div style={{ maxHeight: "240px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   {loadingBank ? (
-                    <div style={{ textAlign: "center", padding: "1rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                    <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
                       Loading question bank...
                     </div>
                   ) : bankQuestions.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "1rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                      No questions found. Try removing search filters.
+                    <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                      No questions found. Try changing filters or adding questions to the bank.
                     </div>
                   ) : (
                     bankQuestions.map(q => {
-                      const isAdded = selectedQuestions.some(sq => sq.question.id === q.id);
+                      const isAdded = selectedQuestions.some(sq => sq.question?.id === q.id);
                       return (
                         <div
                           key={q.id}
@@ -784,27 +859,29 @@ export const CreateExam = ({ setCurrentView }) => {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            padding: "0.5rem 0.75rem",
+                            padding: "0.55rem 0.85rem",
                             borderRadius: "6px",
-                            background: isAdded ? "rgba(99, 102, 241, 0.15)" : "rgba(30, 41, 59, 0.4)",
-                            border: isAdded ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid var(--border-color)",
-                            gap: "0.5rem"
+                            background: isAdded ? "rgba(99, 102, 241, 0.18)" : "rgba(30, 41, 59, 0.4)",
+                            border: isAdded ? "1px solid rgba(99, 102, 241, 0.5)" : "1px solid var(--border-color)",
+                            gap: "0.75rem"
                           }}
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: "0.825rem", color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            <div style={{ fontSize: "0.85rem", color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {q.question_text}
                             </div>
-                            <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.2rem", fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.725rem", color: "var(--text-muted)" }}>
                               <TypeBadge type={q.question_type} />
-                              <span>{q.marks} Marks</span>
+                              <span style={{ color: "#a5b4fc" }}>{q.subject}</span>
+                              <span>&bull;</span>
+                              <span style={{ color: "#34d399", fontWeight: 700 }}>{q.marks} Marks</span>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleToggleManualQuestion(q)}
                             className={`btn btn-sm ${isAdded ? "btn-secondary" : "btn-primary"}`}
-                            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                            style={{ fontSize: "0.75rem", padding: "0.25rem 0.65rem", flexShrink: 0 }}
                           >
                             {isAdded ? "Remove" : "+ Add"}
                           </button>
@@ -816,11 +893,11 @@ export const CreateExam = ({ setCurrentView }) => {
               </div>
             )}
 
-            {/* TAB 3: DOCUMENT / FILE EXTRACTOR (EXCEL / WORD / PDF / CSV / PASTE) */}
+            {/* TAB 3: DOCUMENT / FILE EXTRACTOR */}
             {activeTab === "extractor" && (
               <div style={{ marginBottom: "1rem" }}>
                 <DocumentQuestionExtractor
-                  currentSubject={subject}
+                  currentSubject={effectiveSubject}
                   onAddToExam={handleExtractedQuestionsAdded}
                   onSaveToBankAndAdd={(savedQuestions) => {
                     handleExtractedQuestionsAdded(savedQuestions);
@@ -898,13 +975,13 @@ export const CreateExam = ({ setCurrentView }) => {
                     No Questions in Blueprint Yet
                   </div>
                   <p style={{ fontSize: "0.825rem", maxWidth: "340px", margin: "0 auto" }}>
-                    Click <strong>"Generate Random Questions"</strong> above to auto-select balanced questions from your institution's bank.
+                    Click <strong>"Generate Random Questions"</strong> above, pick manually, or import from Word/Excel/PDF.
                   </p>
                 </div>
               ) : (
                 selectedQuestions.map((sq, index) => (
                   <div
-                    key={`${sq.question.id}-${index}`}
+                    key={`${sq.question?.id || 'q'}-${index}`}
                     className="glass-card"
                     style={{
                       padding: "0.85rem 1rem",
@@ -928,10 +1005,10 @@ export const CreateExam = ({ setCurrentView }) => {
                         }}>
                           Q#{index + 1}
                         </span>
-                        <TypeBadge type={sq.question.question_type} />
-                        <DifficultyBadge difficulty={sq.question.difficulty} />
+                        {sq.question?.question_type && <TypeBadge type={sq.question.question_type} />}
+                        {sq.question?.difficulty && <DifficultyBadge difficulty={sq.question.difficulty} />}
                         <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
-                          {sq.question.subject}
+                          {sq.question?.subject || effectiveSubject}
                         </span>
                       </div>
 
@@ -1000,11 +1077,11 @@ export const CreateExam = ({ setCurrentView }) => {
                     </div>
 
                     <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-main)", lineHeight: 1.4, fontWeight: 500 }}>
-                      {sq.question.question_text}
+                      {sq.question?.question_text || "Question Text"}
                     </p>
 
                     {/* MCQ Options Display */}
-                    {(sq.question.question_type === "MCQ" || sq.question.question_type === "MULTI_SELECT") && (sq.question.options || []).length > 0 && (
+                    {(sq.question?.question_type === "MCQ" || sq.question?.question_type === "MULTI_SELECT") && (sq.question?.options || []).length > 0 && (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.35rem", marginTop: "0.35rem" }}>
                         {sq.question.options.map((opt, optIdx) => {
                           const tag = String.fromCharCode(65 + optIdx);

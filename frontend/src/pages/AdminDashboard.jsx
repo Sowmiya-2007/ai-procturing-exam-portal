@@ -14,47 +14,107 @@ import {
   Eye,
   ShieldCheck,
   FileSpreadsheet,
-  X
+  X,
+  Layers,
+  Search,
+  Filter,
+  RefreshCw,
+  Trash2,
+  FileCheck,
+  Mail,
+  Building2,
+  AlertTriangle,
+  UserX
 } from "lucide-react";
 import { api } from "../services/api";
 import { StatCard } from "../components/StatCard";
 import { StatusBadge } from "../components/StatusBadge";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { StudentDetailModal } from "../components/StudentDetailModal";
-import { DocumentQuestionExtractor } from "../components/DocumentQuestionExtractor";
 import { useToast } from "../context/ToastContext";
 
-export const AdminDashboard = ({ setCurrentView, onStatsUpdated }) => {
+export const AdminDashboard = ({ 
+  setCurrentView, 
+  onStatsUpdated,
+  initialTab = "all" 
+}) => {
   const { showToast } = useToast();
+  const [activeTab, setActiveTab] = useState(initialTab); // "all", "students", "examiners", "exams"
+
   const [stats, setStats] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [examiners, setExaminers] = useState([]);
+  const [exams, setExams] = useState([]);
+  
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Search & Filters
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentStatusFilter, setStudentStatusFilter] = useState("ALL");
+  const [examinerSearch, setExaminerSearch] = useState("");
+  const [examinerStatusFilter, setExaminerStatusFilter] = useState("ALL");
+  const [examSearch, setExamSearch] = useState("");
+  const [examStatusFilter, setExamStatusFilter] = useState("ALL");
 
   // Modals state
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
-  const [showExtractModal, setShowExtractModal] = useState(false);
+
+  // Examiner Modals state
+  const [selectedExaminer, setSelectedExaminer] = useState(null);
+  const [showExaminerDetailModal, setShowExaminerDetailModal] = useState(false);
+  const [showExaminerRejectModal, setShowExaminerRejectModal] = useState(false);
+  const [examinerRejectionReason, setExaminerRejectionReason] = useState("");
+
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchStats = async () => {
+  const fetchAllData = async (isRefresh = false) => {
     try {
-      setLoading(true);
-      const data = await api.getAdminStats();
-      setStats(data);
-      if (onStatsUpdated) onStatsUpdated(data.pending_approvals);
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      const [statsData, studentsData, examinersData, examsData] = await Promise.all([
+        api.getAdminStats().catch(() => null),
+        api.getStudents().catch(() => []),
+        api.getExaminers().catch(() => []),
+        api.getExams().catch(() => [])
+      ]);
+
+      setStats(statsData);
+      setStudents(studentsData || []);
+      setExaminers(examinersData || []);
+      setExams(examsData || []);
+
+      if (onStatsUpdated && statsData) {
+        onStatsUpdated(statsData.pending_approvals || 0);
+      }
+
+      if (isRefresh) {
+        showToast("Admin governance data synchronized.", "info");
+      }
     } catch (err) {
-      showToast(err.message, "error");
+      showToast(err.message || "Failed to load admin dashboard data", "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
+    fetchAllData();
   }, []);
 
-  const handleApprove = async () => {
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  // Student Actions
+  const handleApproveStudent = async () => {
     if (!selectedStudent) return;
     setActionLoading(true);
     try {
@@ -62,7 +122,7 @@ export const AdminDashboard = ({ setCurrentView, onStatsUpdated }) => {
       showToast(`Student "${selectedStudent.name}" has been APPROVED.`, "success");
       setShowApproveConfirm(false);
       setShowDetailModal(false);
-      fetchStats();
+      fetchAllData();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -70,7 +130,7 @@ export const AdminDashboard = ({ setCurrentView, onStatsUpdated }) => {
     }
   };
 
-  const handleReject = async (reason) => {
+  const handleRejectStudent = async (reason) => {
     if (!selectedStudent) return;
     setActionLoading(true);
     try {
@@ -78,7 +138,7 @@ export const AdminDashboard = ({ setCurrentView, onStatsUpdated }) => {
       showToast(`Student "${selectedStudent.name}" has been REJECTED.`, "info");
       setShowRejectConfirm(false);
       setShowDetailModal(false);
-      fetchStats();
+      fetchAllData();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -86,11 +146,111 @@ export const AdminDashboard = ({ setCurrentView, onStatsUpdated }) => {
     }
   };
 
+  // Examiner Actions
+  const handleApproveExaminer = async (examiner) => {
+    setActionLoading(true);
+    try {
+      const res = await api.approveExaminer(examiner.id);
+      showToast(res.message || `Examiner "${examiner.name}" approved successfully!`, "success");
+      setShowExaminerDetailModal(false);
+      fetchAllData();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectExaminer = async () => {
+    if (!selectedExaminer) return;
+    setActionLoading(true);
+    try {
+      const res = await api.rejectExaminer(selectedExaminer.id, examinerRejectionReason);
+      showToast(res.message || `Examiner "${selectedExaminer.name}" application rejected.`, "info");
+      setShowExaminerRejectModal(false);
+      setShowExaminerDetailModal(false);
+      fetchAllData();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Exam Actions
+  const handleToggleExamStatus = async (examId, examTitle) => {
+    try {
+      const updated = await api.toggleExamStatus(examId);
+      if (updated.status === "PUBLISHED") {
+        showToast(`Exam "${examTitle}" is now PUBLISHED and live for enrolled candidates!`, "success");
+      } else {
+        showToast(`Exam "${examTitle}" set to DRAFT (hidden from students).`, "info");
+      }
+      fetchAllData();
+    } catch (err) {
+      showToast(err.message || "Failed to update exam status", "error");
+    }
+  };
+
+  const handleDeleteExam = async (examId, examTitle) => {
+    if (!window.confirm(`Are you sure you want to delete exam "${examTitle}"?`)) return;
+    try {
+      await api.deleteExam(examId);
+      showToast(`Exam "${examTitle}" deleted successfully.`, "info");
+      fetchAllData();
+    } catch (err) {
+      showToast(err.message || "Failed to delete exam", "error");
+    }
+  };
+
+  // Filtered Lists
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = !studentSearch || 
+      s.name.toLowerCase().includes(studentSearch.toLowerCase()) || 
+      s.email.toLowerCase().includes(studentSearch.toLowerCase()) ||
+      (s.register_number && s.register_number.toLowerCase().includes(studentSearch.toLowerCase())) ||
+      (s.department && s.department.toLowerCase().includes(studentSearch.toLowerCase()));
+    
+    const matchesStatus = studentStatusFilter === "ALL" || s.approval_status === studentStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const filteredExaminers = examiners.filter(e => {
+    const matchesSearch = !examinerSearch ||
+      e.name.toLowerCase().includes(examinerSearch.toLowerCase()) ||
+      e.email.toLowerCase().includes(examinerSearch.toLowerCase()) ||
+      (e.department && e.department.toLowerCase().includes(examinerSearch.toLowerCase()));
+    
+    const matchesStatus = examinerStatusFilter === "ALL" || e.approval_status === examinerStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const filteredExams = exams.filter(ex => {
+    const matchesSearch = !examSearch ||
+      ex.title.toLowerCase().includes(examSearch.toLowerCase()) ||
+      (ex.subject && ex.subject.toLowerCase().includes(examSearch.toLowerCase())) ||
+      (ex.code && ex.code.toLowerCase().includes(examSearch.toLowerCase()));
+
+    const matchesStatus = examStatusFilter === "ALL" || ex.status === examStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // KPI Calculations
+  const pendingStudentsCount = students.filter(s => s.approval_status === "PENDING").length;
+  const approvedStudentsCount = students.filter(s => s.approval_status === "APPROVED").length;
+  
+  const pendingExaminersCount = examiners.filter(e => e.approval_status === "PENDING").length;
+  const approvedExaminersCount = examiners.filter(e => e.approval_status === "APPROVED").length;
+
+  const publishedExamsCount = exams.filter(e => e.status === "PUBLISHED").length;
+  const draftExamsCount = exams.filter(e => e.status !== "PUBLISHED").length;
+
   if (loading && !stats) {
     return (
       <div className="page-container" style={{ textAlign: "center", paddingTop: "5rem" }}>
+        <RefreshCw size={36} className="spin-animation" style={{ margin: "0 auto 1rem", color: "#818cf8" }} />
         <div style={{ fontSize: "1.1rem", color: "var(--text-muted)" }}>
-          Loading Administrator Dashboard...
+          Loading Institutional Admin Dashboard...
         </div>
       </div>
     );
@@ -98,185 +258,305 @@ export const AdminDashboard = ({ setCurrentView, onStatsUpdated }) => {
 
   return (
     <div className="page-container">
-      {/* Header */}
+      {/* 1. Header Banner */}
       <div className="dashboard-header">
         <div className="dashboard-title-group">
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             <span className="badge badge-role-admin">Institutional Admin</span>
-            <span style={{ fontSize: "0.785rem", color: "var(--text-subtle)" }}>Live Governance</span>
+            <span style={{ fontSize: "0.785rem", color: "var(--text-subtle)" }}>Central Authority</span>
           </div>
-          <h1>Admin Overview & Controls</h1>
-          <p>System oversight, faculty governance, candidate verification, and examination monitoring</p>
+          <h1>Institutional Administration</h1>
+          <p>
+            Governance hub strictly managing <strong>Enrolled Students</strong>, <strong>Approval of Examiner</strong>, and <strong>Available Exams</strong>
+          </p>
         </div>
 
         <div className="dashboard-actions-group">
           <button
-            onClick={() => setShowExtractModal(true)}
+            onClick={() => fetchAllData(true)}
+            disabled={refreshing}
+            className="btn btn-secondary btn-sm"
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+          >
+            <RefreshCw size={14} className={refreshing ? "spin-animation" : ""} />
+            Sync Portal Data
+          </button>
+          <button
+            onClick={() => setActiveTab("examiners")}
             className="btn btn-secondary btn-sm"
             style={{
-              background: "rgba(16, 185, 129, 0.12)",
-              borderColor: "rgba(16, 185, 129, 0.35)",
-              color: "#6ee7b7"
+              borderColor: pendingExaminersCount > 0 ? "rgba(245, 158, 11, 0.4)" : "var(--border-color)",
+              color: pendingExaminersCount > 0 ? "#fbbf24" : "var(--text-main)"
             }}
           >
-            <FileSpreadsheet size={15} color="#34d399" />
-            Import (PDF/Excel)
-          </button>
-          <button
-            onClick={() => setCurrentView("admin_examiners")}
-            className="btn btn-secondary btn-sm"
-          >
             <ShieldCheck size={15} color="#c084fc" />
-            Examiners ({stats?.pending_examiners || 0} Pending)
+            Examiner Approvals ({pendingExaminersCount})
           </button>
           <button
-            onClick={() => setCurrentView("pending_approvals")}
-            className="btn btn-primary btn-sm"
-            style={{ background: "linear-gradient(135deg, #4f46e5, #6366f1)" }}
-          >
-            <UserCheck size={15} />
-            Approvals ({stats?.pending_approvals || 0})
-          </button>
-          <button
-            onClick={() => setCurrentView("add_question")}
+            onClick={() => setActiveTab("students")}
             className="btn btn-secondary btn-sm"
+            style={{
+              borderColor: pendingStudentsCount > 0 ? "rgba(99, 102, 241, 0.4)" : "var(--border-color)",
+              color: pendingStudentsCount > 0 ? "#818cf8" : "var(--text-main)"
+            }}
           >
-            <PlusCircle size={15} />
-            + Question
+            <Users size={15} color="#818cf8" />
+            Student Approvals ({pendingStudentsCount})
+          </button>
+          <button
+            onClick={() => setActiveTab("exams")}
+            className="btn btn-primary btn-sm"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}
+          >
+            <Layers size={15} />
+            Available Exams ({exams.length})
           </button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="dashboard-stats-grid">
-        <StatCard
-          title="Faculty Examiners"
-          value={stats?.total_examiners || 0}
-          icon={ShieldCheck}
-          color="purple"
-          subtitle={`${stats?.pending_examiners || 0} Pending Verification`}
-          badgeText={stats?.pending_examiners > 0 ? "Review Required" : "All Approved"}
-        />
-        <StatCard
-          title="Total Students"
-          value={stats?.total_students || 0}
-          icon={Users}
-          color="indigo"
-          subtitle="Registered Candidates"
-          badgeText="Enrolled"
-        />
-        <StatCard
-          title="Pending Verifications"
-          value={(stats?.pending_approvals || 0) + (stats?.pending_examiners || 0)}
-          icon={Clock}
-          color="amber"
-          subtitle="Awaiting Gatekeeper"
-          badgeText={(stats?.pending_approvals || 0) + (stats?.pending_examiners || 0) > 0 ? "Action Required" : "All Clear"}
-        />
-        <StatCard
-          title="Approved Candidates"
-          value={stats?.approved_students || 0}
-          icon={CheckCircle2}
-          color="emerald"
-          subtitle="Active Exam Access"
-          badgeText="Verified"
-        />
-        <StatCard
-          title="Question Bank Pool"
-          value={stats?.total_questions || 0}
-          icon={HelpCircle}
-          color="cyan"
-          subtitle="5 Question Formats"
-          badgeText="Active Bank"
-        />
+      {/* 2. Three Dedicated Pillar KPI Cards */}
+      <div className="dashboard-stats-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+        {/* Pillar 1: Enrolled Students */}
+        <div 
+          onClick={() => setActiveTab("students")}
+          style={{ cursor: "pointer" }}
+          title="Click to view Enrolled Students"
+        >
+          <StatCard
+            title="Enrolled Students"
+            value={students.length}
+            icon={Users}
+            color="indigo"
+            subtitle={`${approvedStudentsCount} Approved Candidates &bull; ${pendingStudentsCount} Pending`}
+            badgeText={pendingStudentsCount > 0 ? `${pendingStudentsCount} Verification Required` : "All Verified"}
+          />
+        </div>
+
+        {/* Pillar 2: Approval of Examiner */}
+        <div 
+          onClick={() => setActiveTab("examiners")}
+          style={{ cursor: "pointer" }}
+          title="Click to view Examiner Approvals"
+        >
+          <StatCard
+            title="Approval of Examiner"
+            value={examiners.length}
+            icon={ShieldCheck}
+            color="purple"
+            subtitle={`${approvedExaminersCount} Active Faculty &bull; ${pendingExaminersCount} Pending Verification`}
+            badgeText={pendingExaminersCount > 0 ? `${pendingExaminersCount} Awaiting Approval` : "All Approved"}
+          />
+        </div>
+
+        {/* Pillar 3: Available Exams */}
+        <div 
+          onClick={() => setActiveTab("exams")}
+          style={{ cursor: "pointer" }}
+          title="Click to view Available Exams"
+        >
+          <StatCard
+            title="Available Exams"
+            value={exams.length}
+            icon={Layers}
+            color="emerald"
+            subtitle={`${publishedExamsCount} Live in Student Portal &bull; ${draftExamsCount} Draft Papers`}
+            badgeText={publishedExamsCount > 0 ? `${publishedExamsCount} Published Live` : "No Live Exams"}
+          />
+        </div>
       </div>
 
-      {/* Main Content Sections: Pending Approvals & Department Distribution */}
-      <div className="dashboard-grid-2col">
-        {/* Recent Registrations Table */}
-        <div className="glass-card" style={{ padding: "2.25rem 2.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+      {/* 3. Pillar Selector Tab Navigation */}
+      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "2rem", flexWrap: "wrap", borderBottom: "1px solid var(--border-color)", paddingBottom: "1rem" }}>
+        {[
+          { id: "all", label: "Unified Overview", icon: Sparkles, count: null },
+          { id: "students", label: "Enrolled Students", icon: Users, count: students.length, badge: pendingStudentsCount },
+          { id: "examiners", label: "Approval of Examiner", icon: ShieldCheck, count: examiners.length, badge: pendingExaminersCount },
+          { id: "exams", label: "Available Exams", icon: Layers, count: exams.length, badge: null }
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`btn ${isActive ? "btn-primary" : "btn-secondary"}`}
+              style={{
+                padding: "0.65rem 1.35rem",
+                fontSize: "0.925rem",
+                fontWeight: isActive ? 700 : 500,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.6rem"
+              }}
+            >
+              <Icon size={17} />
+              <span>{tab.label}</span>
+              {tab.count !== null && (
+                <span 
+                  style={{ 
+                    fontSize: "0.75rem", 
+                    padding: "0.15rem 0.5rem", 
+                    borderRadius: "9999px",
+                    background: isActive ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.1)"
+                  }}
+                >
+                  {tab.count}
+                </span>
+              )}
+              {tab.badge > 0 && (
+                <span 
+                  style={{ 
+                    fontSize: "0.72rem", 
+                    fontWeight: 800, 
+                    padding: "0.1rem 0.45rem", 
+                    borderRadius: "9999px",
+                    background: "rgba(245, 158, 11, 0.3)",
+                    color: "#fbbf24",
+                    border: "1px solid rgba(245, 158, 11, 0.5)"
+                  }}
+                >
+                  {tab.badge} Pending
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 4. CONTENT SECTIONS */}
+
+      {/* === PILLAR 1: ENROLLED STUDENTS === */}
+      {(activeTab === "all" || activeTab === "students") && (
+        <div className="glass-card" style={{ padding: "2.25rem 2.5rem", marginBottom: "2.5rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.75rem", flexWrap: "wrap", gap: "1.25rem" }}>
             <div>
-              <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0 }}>Recent Student Registrations</h2>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Users size={22} color="#818cf8" />
+                <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0 }}>
+                  Enrolled Students
+                </h2>
+                <span className="badge badge-role-student" style={{ fontSize: "0.78rem" }}>
+                  {students.length} Total Registered
+                </span>
+              </div>
               <p style={{ fontSize: "0.9rem", color: "var(--text-subtle)", margin: "0.35rem 0 0" }}>
-                Candidate verification pipeline & department enrollment
+                Candidate verification roster, institutional enrollment, and examination clearance
               </p>
             </div>
-            <button
-              onClick={() => setCurrentView("pending_approvals")}
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: "0.85rem", padding: "0.5rem 1rem" }}
-            >
-              View All Approvals <ArrowRight size={15} />
-            </button>
+
+            {/* Filter & Search */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "0.35rem" }}>
+                {["ALL", "PENDING", "APPROVED", "REJECTED"].map(statusKey => (
+                  <button
+                    key={statusKey}
+                    onClick={() => setStudentStatusFilter(statusKey)}
+                    className="btn btn-sm"
+                    style={{
+                      fontSize: "0.78rem",
+                      padding: "0.35rem 0.75rem",
+                      background: studentStatusFilter === statusKey ? "rgba(99, 102, 241, 0.25)" : "rgba(30, 41, 59, 0.5)",
+                      border: studentStatusFilter === statusKey ? "1px solid var(--primary)" : "1px solid var(--border-color)",
+                      color: studentStatusFilter === statusKey ? "#c7d2fe" : "var(--text-muted)"
+                    }}
+                  >
+                    {statusKey}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ position: "relative" }}>
+                <Search size={15} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)" }} />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  style={{
+                    padding: "0.45rem 0.85rem 0.45rem 2.2rem",
+                    fontSize: "0.85rem",
+                    background: "rgba(15, 23, 42, 0.55)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "8px",
+                    color: "var(--text-main)",
+                    width: "190px"
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
+          {/* Students Table */}
           <div className="table-responsive">
             <table className="custom-table">
               <thead>
                 <tr>
                   <th>Student Candidate</th>
-                  <th>Register No</th>
+                  <th>Register Number</th>
                   <th>Department</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th>Registered Date</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {stats?.recent_registrations?.length > 0 ? (
-                  stats.recent_registrations.map((student) => (
+                {filteredStudents.length > 0 ? (
+                  (activeTab === "all" ? filteredStudents.slice(0, 6) : filteredStudents).map((student) => (
                     <tr key={student.id}>
-                      <td style={{ padding: "1.25rem 1.5rem" }}>
+                      <td>
                         <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.95rem" }}>{student.name}</div>
                         <div style={{ fontSize: "0.8rem", color: "var(--text-subtle)", marginTop: "0.2rem" }}>{student.email}</div>
                       </td>
-                      <td style={{ padding: "1.25rem 1.5rem" }}>
+                      <td>
                         <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.875rem", color: "var(--primary-light)", fontWeight: 700 }}>
-                          {student.register_number || "N/A"}
+                          {student.register_number || "REG-UNASSIGNED"}
                         </span>
                       </td>
-                      <td style={{ padding: "1.25rem 1.5rem" }}>
-                        <span style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
-                          {student.department}
+                      <td>
+                        <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>
+                          {student.department || "General"}
                         </span>
                       </td>
-                      <td style={{ padding: "1.25rem 1.5rem" }}>
+                      <td>
                         <StatusBadge status={student.approval_status} />
                       </td>
-                      <td style={{ padding: "1.25rem 1.5rem" }}>
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <td style={{ fontSize: "0.85rem", color: "var(--text-subtle)" }}>
+                        {student.created_at ? new Date(student.created_at).toLocaleDateString() : "N/A"}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.45rem" }}>
                           <button
                             className="btn btn-secondary btn-sm"
-                            title="View Details"
+                            title="View Student Candidate Details"
                             onClick={() => {
                               setSelectedStudent(student);
                               setShowDetailModal(true);
                             }}
-                            style={{ padding: "0.45rem 0.65rem" }}
+                            style={{ padding: "0.35rem 0.65rem" }}
                           >
-                            <Eye size={15} />
+                            <Eye size={14} />
                           </button>
                           {student.approval_status === "PENDING" && (
                             <>
                               <button
                                 className="btn btn-emerald btn-sm"
-                                title="Approve"
+                                title="Approve Student Account"
                                 onClick={() => {
                                   setSelectedStudent(student);
                                   setShowApproveConfirm(true);
                                 }}
-                                style={{ padding: "0.45rem 0.85rem", fontSize: "0.8rem" }}
+                                style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
                               >
                                 Approve
                               </button>
                               <button
                                 className="btn btn-rose btn-sm"
-                                title="Reject"
+                                title="Reject Student Account"
                                 onClick={() => {
                                   setSelectedStudent(student);
                                   setShowRejectConfirm(true);
                                 }}
-                                style={{ padding: "0.45rem 0.85rem", fontSize: "0.8rem" }}
+                                style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
                               >
                                 Reject
                               </button>
@@ -288,80 +568,396 @@ export const AdminDashboard = ({ setCurrentView, onStatsUpdated }) => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: "center", color: "var(--text-subtle)", padding: "3.5rem" }}>
-                      No candidate submissions logged in the system yet.
+                    <td colSpan="6" style={{ textAlign: "center", color: "var(--text-subtle)", padding: "3rem" }}>
+                      No student records found matching the specified filters.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
 
-        {/* Department Breakdown & Quick Links */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
-          {/* Department Breakdown */}
-          <div className="glass-card" style={{ padding: "2rem 2.25rem" }}>
-            <h3 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: "1.25rem", color: "var(--text-main)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Students by Department
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {stats?.department_counts && Object.keys(stats.department_counts).length > 0 ? (
-                Object.entries(stats.department_counts).map(([dept, count]) => (
-                  <div key={dept} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.85rem 1.15rem", background: "rgba(15, 23, 42, 0.45)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
-                    <span style={{ fontSize: "0.9rem", color: "var(--text-main)", fontWeight: 600 }}>
-                      {dept}
-                    </span>
-                    <span className="badge badge-role-student" style={{ fontWeight: 800, fontSize: "0.75rem" }}>
-                      {count} {count === 1 ? "Student" : "Students"}
-                    </span>
+          {activeTab === "all" && filteredStudents.length > 6 && (
+            <div style={{ textAlign: "center", marginTop: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
+              <button
+                onClick={() => setActiveTab("students")}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: "0.85rem" }}
+              >
+                View All {filteredStudents.length} Enrolled Students <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* === PILLAR 2: APPROVAL OF EXAMINER === */}
+      {(activeTab === "all" || activeTab === "examiners") && (
+        <div className="glass-card" style={{ padding: "2.25rem 2.5rem", marginBottom: "2.5rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.75rem", flexWrap: "wrap", gap: "1.25rem" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <ShieldCheck size={22} color="#c084fc" />
+                <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0 }}>
+                  Approval of Examiner
+                </h2>
+                {pendingExaminersCount > 0 ? (
+                  <span className="badge badge-pending" style={{ fontSize: "0.78rem" }}>
+                    {pendingExaminersCount} Pending Review
+                  </span>
+                ) : (
+                  <span className="badge badge-approved" style={{ fontSize: "0.78rem" }}>
+                    All Faculty Approved
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: "0.9rem", color: "var(--text-subtle)", margin: "0.35rem 0 0" }}>
+                Verify and approve faculty examiner credentials before question authoring & exam scheduling privileges are unlocked
+              </p>
+            </div>
+
+            {/* Filter & Search */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "0.35rem" }}>
+                {["ALL", "PENDING", "APPROVED", "REJECTED"].map(statusKey => (
+                  <button
+                    key={statusKey}
+                    onClick={() => setExaminerStatusFilter(statusKey)}
+                    className="btn btn-sm"
+                    style={{
+                      fontSize: "0.78rem",
+                      padding: "0.35rem 0.75rem",
+                      background: examinerStatusFilter === statusKey ? "rgba(168, 85, 247, 0.25)" : "rgba(30, 41, 59, 0.5)",
+                      border: examinerStatusFilter === statusKey ? "1px solid #a855f7" : "1px solid var(--border-color)",
+                      color: examinerStatusFilter === statusKey ? "#e9d5ff" : "var(--text-muted)"
+                    }}
+                  >
+                    {statusKey}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ position: "relative" }}>
+                <Search size={15} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)" }} />
+                <input
+                  type="text"
+                  placeholder="Search examiners..."
+                  value={examinerSearch}
+                  onChange={(e) => setExaminerSearch(e.target.value)}
+                  style={{
+                    padding: "0.45rem 0.85rem 0.45rem 2.2rem",
+                    fontSize: "0.85rem",
+                    background: "rgba(15, 23, 42, 0.55)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "8px",
+                    color: "var(--text-main)",
+                    width: "190px"
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Examiners Table */}
+          <div className="table-responsive">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Faculty Examiner</th>
+                  <th>Department</th>
+                  <th>Credentials & Status</th>
+                  <th>Application Date</th>
+                  <th style={{ textAlign: "right" }}>Governance Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredExaminers.length > 0 ? (
+                  (activeTab === "all" ? filteredExaminers.slice(0, 6) : filteredExaminers).map((examiner) => (
+                    <tr key={examiner.id}>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                          <div
+                            style={{
+                              width: "38px",
+                              height: "38px",
+                              borderRadius: "10px",
+                              background: examiner.approval_status === "APPROVED" 
+                                ? "linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2))" 
+                                : examiner.approval_status === "PENDING"
+                                  ? "linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2))"
+                                  : "linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(225, 29, 72, 0.2))",
+                              border: `1px solid ${examiner.approval_status === "APPROVED" ? "#10b981" : examiner.approval_status === "PENDING" ? "#f59e0b" : "#f43f5e"}`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontWeight: 800,
+                              color: examiner.approval_status === "APPROVED" ? "#34d399" : examiner.approval_status === "PENDING" ? "#fbbf24" : "#fda4af"
+                            }}
+                          >
+                            {examiner.name?.charAt(0) || "F"}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.95rem" }}>{examiner.name}</div>
+                            <div style={{ fontSize: "0.8rem", color: "var(--text-subtle)", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                              <Mail size={12} /> {examiner.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: "0.875rem", color: "var(--text-main)", fontWeight: 600 }}>
+                          {examiner.department || "Academic Faculty"}
+                        </span>
+                      </td>
+                      <td>
+                        <StatusBadge status={examiner.approval_status} />
+                      </td>
+                      <td style={{ fontSize: "0.85rem", color: "var(--text-subtle)" }}>
+                        {examiner.created_at ? new Date(examiner.created_at).toLocaleDateString() : "N/A"}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.45rem" }}>
+                          {examiner.approval_status === "PENDING" ? (
+                            <>
+                              <button
+                                onClick={() => handleApproveExaminer(examiner)}
+                                className="btn btn-emerald btn-sm"
+                                style={{ padding: "0.35rem 0.85rem", fontSize: "0.78rem" }}
+                              >
+                                Approve Examiner
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedExaminer(examiner);
+                                  setExaminerRejectionReason("Qualifications verification did not satisfy faculty examination board requirements.");
+                                  setShowExaminerRejectModal(true);
+                                }}
+                                className="btn btn-rose btn-sm"
+                                style={{ padding: "0.35rem 0.85rem", fontSize: "0.78rem" }}
+                              >
+                                Reject
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setSelectedExaminer(examiner);
+                                setShowExaminerDetailModal(true);
+                              }}
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                            >
+                              <Eye size={13} /> Dossier
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: "center", color: "var(--text-subtle)", padding: "3rem" }}>
+                      No faculty examiner records found matching the specified filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {activeTab === "all" && filteredExaminers.length > 6 && (
+            <div style={{ textAlign: "center", marginTop: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
+              <button
+                onClick={() => setActiveTab("examiners")}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: "0.85rem" }}
+              >
+                View All {filteredExaminers.length} Examiner Approvals <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* === PILLAR 3: AVAILABLE EXAMS === */}
+      {(activeTab === "all" || activeTab === "exams") && (
+        <div className="glass-card" style={{ padding: "2.25rem 2.5rem", marginBottom: "2rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.75rem", flexWrap: "wrap", gap: "1.25rem" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Layers size={22} color="#34d399" />
+                <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0 }}>
+                  Available Exams
+                </h2>
+                <span className="badge badge-approved" style={{ fontSize: "0.78rem" }}>
+                  {exams.length} Active Blueprints
+                </span>
+              </div>
+              <p style={{ fontSize: "0.9rem", color: "var(--text-subtle)", margin: "0.35rem 0 0" }}>
+                Examination schedules, randomize question papers, duration limits, and candidate access status
+              </p>
+            </div>
+
+            {/* Search & Actions */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "0.35rem" }}>
+                {["ALL", "PUBLISHED", "DRAFT"].map(statusKey => (
+                  <button
+                    key={statusKey}
+                    onClick={() => setExamStatusFilter(statusKey)}
+                    className="btn btn-sm"
+                    style={{
+                      fontSize: "0.78rem",
+                      padding: "0.35rem 0.75rem",
+                      background: examStatusFilter === statusKey ? "rgba(16, 185, 129, 0.25)" : "rgba(30, 41, 59, 0.5)",
+                      border: examStatusFilter === statusKey ? "1px solid #10b981" : "1px solid var(--border-color)",
+                      color: examStatusFilter === statusKey ? "#6ee7b7" : "var(--text-muted)"
+                    }}
+                  >
+                    {statusKey}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ position: "relative" }}>
+                <Search size={15} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)" }} />
+                <input
+                  type="text"
+                  placeholder="Search exams..."
+                  value={examSearch}
+                  onChange={(e) => setExamSearch(e.target.value)}
+                  style={{
+                    padding: "0.45rem 0.85rem 0.45rem 2.2rem",
+                    fontSize: "0.85rem",
+                    background: "rgba(15, 23, 42, 0.55)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "8px",
+                    color: "var(--text-main)",
+                    width: "190px"
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={() => setCurrentView("create_exam")}
+                className="btn btn-primary btn-sm"
+                style={{
+                  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  padding: "0.45rem 0.95rem"
+                }}
+              >
+                <PlusCircle size={15} /> + Create Exam
+              </button>
+            </div>
+          </div>
+
+          {/* Exams List */}
+          {filteredExams.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "3.5rem 2rem", border: "1.5px dashed var(--border-color)", borderRadius: "var(--radius-md)", color: "var(--text-muted)" }}>
+              <Layers size={36} color="#818cf8" style={{ margin: "0 auto 0.75rem" }} />
+              <div style={{ fontWeight: 800, color: "var(--text-main)", fontSize: "1.05rem", marginBottom: "0.35rem" }}>
+                No active examinations found
+              </div>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-subtle)", margin: 0 }}>
+                Faculty examiners can configure new examinations or randomized papers.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {filteredExams.map(exam => (
+                <div
+                  key={exam.id}
+                  style={{
+                    padding: "1.35rem 1.65rem",
+                    background: "rgba(15, 23, 42, 0.45)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "var(--radius-md)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "1.25rem",
+                    flexWrap: "wrap",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 800, color: "var(--text-main)", fontSize: "1.05rem" }}>
+                        {exam.title}
+                      </span>
+                      <span className="badge badge-type" style={{ fontSize: "0.75rem" }}>
+                        {exam.code || `EXAM-#${exam.id}`} &bull; {exam.subject || "General"}
+                      </span>
+                      {exam.creator_name && (
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
+                          Author: <strong style={{ color: "#c7d2fe" }}>{exam.creator_name}</strong>
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "flex", gap: "1rem", marginTop: "0.45rem", flexWrap: "wrap" }}>
+                      <span>⏱ {exam.duration_minutes} Mins</span>
+                      <span>&bull;</span>
+                      <span>🏆 {exam.total_marks} Marks</span>
+                      <span>&bull;</span>
+                      <span>📝 {exam.questions_count || exam.exam_questions?.length || 0} Questions</span>
+                    </div>
                   </div>
-                ))
-              ) : (
-                <div style={{ fontSize: "0.875rem", color: "var(--text-subtle)", textAlign: "center", padding: "1.75rem" }}>
-                  No department distribution data yet.
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Quick Administration Hub */}
-          <div className="glass-card" style={{ padding: "2rem 2.25rem" }}>
-            <h3 style={{ fontSize: "1.05rem", fontWeight: 800, margin: "0 0 1.25rem", color: "var(--text-main)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Quick Governance Links
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-              <div
-                className="tool-tile"
-                onClick={() => setCurrentView("admin_examiners")}
-              >
-                <div className="tool-tile-icon" style={{ background: "rgba(168, 85, 247, 0.15)", color: "#c084fc" }}>
-                  <ShieldCheck size={20} />
-                </div>
-                <div className="tool-tile-body">
-                  <div className="tool-tile-title">Examiner Governance</div>
-                  <div className="tool-tile-subtitle">Approve faculty credentials</div>
-                </div>
-                <ArrowRight size={16} color="var(--text-subtle)" />
-              </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", flexShrink: 0 }}>
+                    {exam.status === "PUBLISHED" ? (
+                      <span className="badge badge-approved" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                        <CheckCircle2 size={12} color="#34d399" /> Live in Student Portal
+                      </span>
+                    ) : (
+                      <span className="badge badge-pending" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                        <Clock size={12} color="#fbbf24" /> Draft (Hidden)
+                      </span>
+                    )}
 
-              <div
-                className="tool-tile"
-                onClick={() => setCurrentView("question_bank")}
-              >
-                <div className="tool-tile-icon" style={{ background: "rgba(99, 102, 241, 0.15)", color: "#818cf8" }}>
-                  <BookOpen size={20} />
+                    <button
+                      onClick={() => handleToggleExamStatus(exam.id, exam.title)}
+                      className={`btn btn-sm ${exam.status === "PUBLISHED" ? "btn-secondary" : "btn-emerald"}`}
+                      style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem" }}
+                    >
+                      {exam.status === "PUBLISHED" ? "To Draft" : "Publish Live"}
+                    </button>
+
+                    <button
+                      onClick={() => setCurrentView("enrolled_students")}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                    >
+                      <Users size={13} color="#818cf8" /> Candidates
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteExam(exam.id, exam.title)}
+                      title="Delete Exam"
+                      style={{
+                        background: "rgba(244, 63, 94, 0.1)",
+                        border: "1px solid rgba(244, 63, 94, 0.25)",
+                        color: "#fda4af",
+                        borderRadius: "8px",
+                        padding: "0.35rem 0.6rem",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center"
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
-                <div className="tool-tile-body">
-                  <div className="tool-tile-title">Question Bank Hub</div>
-                  <div className="tool-tile-subtitle">Browse & verify item pools</div>
-                </div>
-                <ArrowRight size={16} color="var(--text-subtle)" />
-              </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* 5. MODALS */}
 
       {/* Student Detail Modal */}
       <StudentDetailModal
@@ -380,91 +976,170 @@ export const AdminDashboard = ({ setCurrentView, onStatsUpdated }) => {
         }}
       />
 
-      {/* Approve Confirmation Modal */}
+      {/* Approve Student Confirmation Modal */}
       <ConfirmModal
         isOpen={showApproveConfirm}
-        title="Approve Student Account"
-        message={`Are you sure you want to approve "${selectedStudent?.name}" (${selectedStudent?.register_number})? Once approved, the student will immediately be granted access to log in and attend online examinations.`}
+        title="Approve Student Candidate"
+        message={`Are you sure you want to approve candidate "${selectedStudent?.name}" (${selectedStudent?.register_number})? Once approved, the student can log in and take available exams.`}
         confirmText="Approve Candidate"
         type="emerald"
         loading={actionLoading}
-        onConfirm={handleApprove}
+        onConfirm={handleApproveStudent}
         onCancel={() => setShowApproveConfirm(false)}
       />
 
-      {/* Reject Confirmation Modal */}
+      {/* Reject Student Confirmation Modal */}
       <ConfirmModal
         isOpen={showRejectConfirm}
         title="Reject Student Registration"
-        message={`Are you sure you want to reject registration for "${selectedStudent?.name}"? You can optionally enter a reason below to assist candidate inquiry.`}
+        message={`Are you sure you want to reject registration for "${selectedStudent?.name}"?`}
         confirmText="Reject Registration"
         type="rose"
         showReasonInput={true}
         reasonPlaceholder="e.g. Student ID does not match university registrar enrollment roster."
         loading={actionLoading}
-        onConfirm={handleReject}
+        onConfirm={handleRejectStudent}
         onCancel={() => setShowRejectConfirm(false)}
       />
 
-      {/* Extract / Import Modal */}
-      {showExtractModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(10, 15, 29, 0.85)",
-            backdropFilter: "blur(8px)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1.5rem"
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowExtractModal(false);
-          }}
-        >
-          <div
-            className="glass-card"
-            style={{
-              maxWidth: "1000px",
-              width: "100%",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              padding: "1.75rem",
-              background: "var(--bg-card)",
-              border: "1px solid var(--border-color)",
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.75rem" }}>
+      {/* Examiner Reject Modal */}
+      {showExaminerRejectModal && selectedExaminer && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "500px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+              <div style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                background: "rgba(244, 63, 94, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#f43f5e"
+              }}>
+                <UserX size={22} />
+              </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <FileSpreadsheet size={20} color="#34d399" />
-                  Import Questions to Repository
+                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text-main)" }}>
+                  Reject Examiner Application
                 </h3>
-                <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                  Upload Excel, Word, PDF or paste text to bulk extract questions directly into your Question Bank.
+                <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                  {selectedExaminer.name} ({selectedExaminer.email})
                 </p>
               </div>
-              <button
-                onClick={() => setShowExtractModal(false)}
-                className="btn btn-secondary btn-sm"
-                style={{ padding: "0.4rem 0.6rem" }}
-              >
-                <X size={18} />
-              </button>
             </div>
 
-            <DocumentQuestionExtractor
-              isModal={true}
-              onClose={() => setShowExtractModal(false)}
-              onQuestionsSavedToBank={(createdQuestions) => {
-                showToast(`Successfully added ${createdQuestions.length} questions to the bank!`, "success");
-                fetchStats();
-                setShowExtractModal(false);
-              }}
-            />
+            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1.25rem" }}>
+              Please specify the reason for rejecting this faculty examiner. The applicant will see this notification upon sign-in.
+            </p>
+
+            <div className="form-group">
+              <label className="form-label">Rejection Reason *</label>
+              <textarea
+                rows={3}
+                className="form-control"
+                value={examinerRejectionReason}
+                onChange={(e) => setExaminerRejectionReason(e.target.value)}
+                placeholder="Enter reason for rejection..."
+                style={{ resize: "vertical" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1.5rem" }}>
+              <button
+                type="button"
+                onClick={() => setShowExaminerRejectModal(false)}
+                className="btn btn-secondary"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectExaminer}
+                className="btn btn-primary"
+                style={{ background: "linear-gradient(135deg, #e11d48, #f43f5e)" }}
+                disabled={actionLoading || !examinerRejectionReason.trim()}
+              >
+                {actionLoading ? "Rejecting..." : "Reject Examiner"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Examiner Detail Dossier Modal */}
+      {showExaminerDetailModal && selectedExaminer && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "560px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--text-main)" }}>
+                Examiner Dossier
+              </h3>
+              <StatusBadge status={selectedExaminer.approval_status} />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1.5rem" }}>
+              <div className="glass-card" style={{ padding: "1rem", background: "rgba(30, 41, 59, 0.4)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Name</div>
+                    <div style={{ fontWeight: 600, color: "var(--text-main)", fontSize: "0.95rem" }}>{selectedExaminer.name}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Role</div>
+                    <div style={{ fontWeight: 600, color: "var(--primary-light)", fontSize: "0.95rem" }}>{selectedExaminer.role}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Email</div>
+                    <div style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>{selectedExaminer.email}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Department</div>
+                    <div style={{ color: "var(--text-main)", fontSize: "0.9rem" }}>{selectedExaminer.department || "N/A"}</div>
+                  </div>
+                </div>
+              </div>
+
+              {selectedExaminer.approval_status === "APPROVED" && (
+                <div style={{
+                  padding: "0.85rem 1rem",
+                  borderRadius: "var(--radius-md)",
+                  background: "rgba(16, 185, 129, 0.1)",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
+                  color: "#6ee7b7",
+                  fontSize: "0.85rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem"
+                }}>
+                  <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                  <span>Authorized to author questions and manage examination configurations.</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+              {selectedExaminer.approval_status === "PENDING" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleApproveExaminer(selectedExaminer);
+                  }}
+                  className="btn btn-primary"
+                  style={{ background: "linear-gradient(135deg, #059669, #10b981)" }}
+                >
+                  Approve Examiner
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowExaminerDetailModal(false)}
+                className="btn btn-secondary"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -39,15 +39,15 @@ app.include_router(auth_router.router)
 app.include_router(admin_router.router)
 app.include_router(questions_router.router)
 app.include_router(student_router.router)
-app.include_router(exams_router.router)
 app.include_router(exam_session_router.router)
+app.include_router(exams_router.router)
 
 # Also mount direct root aliases for direct API calls (/admin, /questions, /exams, /auth)
 app.include_router(auth_router.router, prefix="", include_in_schema=False)
 app.include_router(admin_router.router, prefix="", include_in_schema=False)
 app.include_router(questions_router.router, prefix="", include_in_schema=False)
-app.include_router(exams_router.router, prefix="", include_in_schema=False)
 app.include_router(exam_session_router.router, prefix="", include_in_schema=False)
+app.include_router(exams_router.router, prefix="", include_in_schema=False)
 
 # Specific non-prefixed examiner and exam routes matching exact specification
 direct_router = APIRouter(tags=["Root Aliases"])

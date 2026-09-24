@@ -52,18 +52,18 @@ function MainApp() {
   useEffect(() => {
     if (!loading) {
       if (isAuthenticated) {
-        if (isStudent && !["exam_hall", "exam_result"].includes(currentView)) {
+        if (isStudent && !["student_dashboard", "available_exams", "my_results", "exam_hall", "exam_result"].includes(currentView)) {
           setCurrentView("student_dashboard");
-        } else if (isExaminer && !["examiner_results_audit", "enrolled_students", "question_bank", "add_question", "edit_question", "create_exam"].includes(currentView)) {
+        } else if (isExaminer && !["examiner_dashboard", "created_exams", "examiner_results_audit", "enrolled_students", "question_bank", "add_question", "edit_question", "create_exam"].includes(currentView)) {
           setCurrentView("examiner_dashboard");
-        } else if (isAdmin && !["examiner_results_audit", "enrolled_students", "admin_examiners", "pending_approvals", "approved_students", "question_bank", "add_question", "create_exam"].includes(currentView)) {
+        } else if (isAdmin && !["admin_dashboard", "admin_available_exams", "examiner_results_audit", "enrolled_students", "admin_examiners", "pending_approvals", "approved_students", "question_bank", "add_question", "create_exam"].includes(currentView)) {
           setCurrentView("admin_dashboard");
         }
       } else {
         if ([
-          "admin_dashboard", "admin_examiners", "examiner_dashboard", 
+          "admin_dashboard", "admin_available_exams", "admin_examiners", "examiner_dashboard", "created_exams",
           "pending_approvals", "approved_students", "enrolled_students", "question_bank", 
-          "add_question", "edit_question", "create_exam", "student_dashboard",
+          "add_question", "edit_question", "create_exam", "student_dashboard", "available_exams", "my_results",
           "exam_hall", "exam_result", "examiner_results_audit"
         ].includes(currentView)) {
           setCurrentView("landing");
@@ -104,11 +104,21 @@ function MainApp() {
           <AdminDashboard
             setCurrentView={setCurrentView}
             onStatsUpdated={(count) => setPendingCount(count)}
+            initialTab="all"
+          />
+        );
+      case "admin_available_exams":
+        return (
+          <AdminDashboard
+            setCurrentView={setCurrentView}
+            onStatsUpdated={(count) => setPendingCount(count)}
+            initialTab="exams"
           />
         );
       case "admin_examiners":
         return <AdminExaminers />;
       case "examiner_dashboard":
+      case "created_exams":
         return (
           <ExaminerDashboard
             setCurrentView={setCurrentView}
@@ -116,6 +126,15 @@ function MainApp() {
             onSelectExamForStudents={(examId) => {
               setSelectedExamIdForStudents(examId);
               setCurrentView("enrolled_students");
+            }}
+            onSelectExamForResults={(examId) => {
+              setSelectedExamIdForStudents(examId);
+              setCurrentView("examiner_results_audit");
+            }}
+            onInspectResult={(sessionToken, examId) => {
+              if (examId) setSelectedExamIdForStudents(examId);
+              setActiveResultToken(sessionToken);
+              setCurrentView("examiner_results_audit");
             }}
           />
         );
@@ -144,7 +163,13 @@ function MainApp() {
       case "examiner_results_audit":
         return (
           <ExaminerResultsAudit
-            onBack={() => setCurrentView(isAdmin ? "admin_dashboard" : "examiner_dashboard")}
+            initialExamId={selectedExamIdForStudents}
+            initialSessionToken={activeResultToken}
+            onBack={() => {
+              setActiveResultToken(null);
+              setSelectedExamIdForStudents(null);
+              setCurrentView(isAdmin ? "admin_dashboard" : "examiner_dashboard");
+            }}
           />
         );
       case "question_bank":
@@ -173,6 +198,35 @@ function MainApp() {
       case "student_dashboard":
         return (
           <StudentDashboard
+            initialTab="available"
+            onEnterExamHall={(token) => {
+              setActiveSessionToken(token);
+              setCurrentView("exam_hall");
+            }}
+            onViewResult={(token) => {
+              setActiveResultToken(token);
+              setCurrentView("exam_result");
+            }}
+          />
+        );
+      case "available_exams":
+        return (
+          <StudentDashboard
+            initialTab="available"
+            onEnterExamHall={(token) => {
+              setActiveSessionToken(token);
+              setCurrentView("exam_hall");
+            }}
+            onViewResult={(token) => {
+              setActiveResultToken(token);
+              setCurrentView("exam_result");
+            }}
+          />
+        );
+      case "my_results":
+        return (
+          <StudentDashboard
+            initialTab="results"
             onEnterExamHall={(token) => {
               setActiveSessionToken(token);
               setCurrentView("exam_hall");

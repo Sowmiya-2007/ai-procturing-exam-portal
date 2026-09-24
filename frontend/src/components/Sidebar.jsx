@@ -23,36 +23,37 @@ export const Sidebar = ({ currentView, setCurrentView, pendingCount = 0, pending
     { id: "admin_dashboard", label: "Admin Overview", icon: LayoutDashboard },
     { 
       id: "admin_examiners", 
-      label: "Examiner Governance", 
+      label: "Approval of Examiner", 
       icon: ShieldCheck,
       badge: pendingExaminersCount > 0 ? pendingExaminersCount : null,
       badgeColor: "#fbbf24"
     },
     { 
-      id: "pending_approvals", 
-      label: "Student Approvals", 
-      icon: UserCheck, 
+      id: "enrolled_students", 
+      label: "Enrolled Students", 
+      icon: Users, 
       badge: pendingCount > 0 ? pendingCount : null,
       badgeColor: "#fbbf24"
     },
-    { id: "approved_students", label: "Approved Students", icon: Users },
-    { id: "examiner_results_audit", label: "Submissions & Audit", icon: FileCheck2 },
-    { id: "question_bank", label: "Question Bank", icon: HelpCircle },
-    { id: "add_question", label: "Create Question", icon: PlusCircle },
-    { id: "create_exam", label: "Create Exam", icon: Layers }
+    { id: "admin_available_exams", label: "Available Exams", icon: Layers },
+    { id: "question_bank", label: "Question Bank Hub", icon: HelpCircle },
+    { id: "create_exam", label: "Create Exam", icon: PlusCircle }
   ];
 
   const examinerNavItems = [
     { id: "examiner_dashboard", label: "Examiner Dashboard", icon: LayoutDashboard },
+    { id: "created_exams", label: "Created Exams", icon: Layers },
+    { id: "create_exam", label: "Create Exam (Random)", icon: PlusCircle },
     { id: "enrolled_students", label: "Enrolled Students", icon: Users },
     { id: "examiner_results_audit", label: "Candidate Submissions", icon: FileCheck2 },
-    { id: "create_exam", label: "Create Exam (Random)", icon: Layers },
     { id: "question_bank", label: "Question Bank Hub", icon: HelpCircle },
     { id: "add_question", label: "Create Question", icon: PlusCircle }
   ];
 
   const studentNavItems = [
-    { id: "student_dashboard", label: "Student Examination Portal", icon: GraduationCap }
+    { id: "available_exams", label: "Available Exams", icon: Layers },
+    { id: "student_dashboard", label: "Student Dashboard", icon: GraduationCap },
+    { id: "my_results", label: "My Scorecards & Results", icon: FileCheck2 }
   ];
 
   let items = [];

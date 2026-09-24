@@ -9,6 +9,17 @@ const getHeaders = () => {
   };
 };
 
+export const formatError = (data, fallback = "Operation failed") => {
+  if (!data) return fallback;
+  if (typeof data === "string") return data;
+  if (typeof data.detail === "string") return data.detail;
+  if (Array.isArray(data.detail)) {
+    return data.detail.map(d => `${d.loc ? d.loc[d.loc.length - 1] : "Field"}: ${d.msg}`).join(" | ");
+  }
+  if (data.message) return data.message;
+  return fallback;
+};
+
 export const api = {
   // --- Auth ---
   register: async (payload) => {
@@ -336,7 +347,7 @@ export const api = {
       body: JSON.stringify(payload)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Failed to create exam");
+    if (!res.ok) throw new Error(formatError(data, "Failed to create exam"));
     return data;
   },
 
@@ -347,7 +358,7 @@ export const api = {
       body: JSON.stringify(payload)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Failed to update exam");
+    if (!res.ok) throw new Error(formatError(data, "Failed to update exam"));
     return data;
   },
 
@@ -492,7 +503,10 @@ export const api = {
   },
 
   getExamSubmissions: async (examId) => {
-    const res = await fetch(`${API_BASE}/exams/${examId}/submissions`, {
+    const url = (examId && examId !== "ALL")
+      ? `${API_BASE}/exams/${examId}/submissions`
+      : `${API_BASE}/exams/submissions`;
+    const res = await fetch(url, {
       headers: getHeaders()
     });
     const data = await res.json();

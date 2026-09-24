@@ -52,7 +52,7 @@ def serialize_exam(exam: Exam, db: Optional[Session] = None) -> dict:
         "description": exam.description,
         "duration_minutes": exam.duration_minutes,
         "total_marks": total_m,
-        "passing_marks": getattr(exam, "passing_marks", None) or round(total_m * 0.4, 2),
+        "passing_marks": getattr(exam, "passing_marks", None) if getattr(exam, "passing_marks", None) is not None else round(total_m * 0.4, 2),
         "status": exam.status,
         "difficulty_distribution": None,
         "type_distribution": None,
@@ -80,14 +80,25 @@ def serialize_exam(exam: Exam, db: Optional[Session] = None) -> dict:
                     "question_text": eq.question.question_text,
                     "question_type": eq.question.question_type,
                     "subject": eq.question.subject,
+                    "topic": eq.question.topic,
                     "difficulty": eq.question.difficulty,
-                    "marks": eq.question.max_marks,
-                    "negative_marks": eq.question.negative_marks,
+                    "marks": eq.marks or eq.question.max_marks or 1.0,
+                    "negative_marks": eq.question.negative_marks or 0.0,
+                    "expected_answer": eq.question.expected_answer,
                     "model_answer": eq.question.model_answer,
+                    "evaluation_guidelines": eq.question.evaluation_guidelines,
                     "created_by": eq.question.created_by or 0,
-                    "creator_name": eq.question.creator.name if eq.question.creator else "System",
+                    "creator_name": getattr(eq.question.creator, "name", None) if getattr(eq.question, "creator", None) else "System",
                     "created_at": eq.question.created_at,
-                    "options": eq.question.options
+                    "options": [
+                        {
+                            "id": opt.id,
+                            "question_id": opt.question_id,
+                            "option_text": opt.option_text,
+                            "is_correct": opt.is_correct
+                        }
+                        for opt in (eq.question.options or [])
+                    ]
                 } if eq.question else None
             }
             for eq in exam.exam_questions
@@ -154,7 +165,7 @@ def get_random_questions(
         additional = fallback_query.order_by(func.random()).limit(payload.question_count - len(questions)).all()
         questions.extend(additional)
 
-    # Global fallback if still needed
+    # Global fallback if still needed across any subject
     if len(questions) < payload.question_count:
         existing_ids = [q.id for q in questions]
         fallback_query = db.query(Question).options(joinedload(Question.options), joinedload(Question.creator))
@@ -170,14 +181,25 @@ def get_random_questions(
             "question_text": q.question_text,
             "question_type": q.question_type,
             "subject": q.subject,
+            "topic": q.topic,
             "difficulty": q.difficulty,
             "marks": q.max_marks,
             "negative_marks": q.negative_marks,
+            "expected_answer": q.expected_answer,
             "model_answer": q.model_answer,
-            "created_by": q.created_by,
+            "evaluation_guidelines": q.evaluation_guidelines,
+            "created_by": q.created_by or 0,
             "creator_name": q.creator.name if q.creator else "System",
             "created_at": q.created_at,
-            "options": q.options
+            "options": [
+                {
+                    "id": opt.id,
+                    "question_id": opt.question_id,
+                    "option_text": opt.option_text,
+                    "is_correct": opt.is_correct
+                }
+                for opt in (q.options or [])
+            ]
         }
         result.append(q_dict)
 
@@ -344,7 +366,7 @@ def get_all_enrolled_students(
     """
     return get_enrolled_candidates_list(db, exam_id=exam_id, search=search, status_filter=status, department=department)
 
-@router.get("/{exam_id}/enrolled-students", response_model=EnrolledStudentsSummaryResponse)
+@router.get("/{exam_id:int}/enrolled-students", response_model=EnrolledStudentsSummaryResponse)
 def get_exam_enrolled_students(
     exam_id: int,
     search: Optional[str] = Query(None, description="Search by student name or email"),
@@ -357,7 +379,7 @@ def get_exam_enrolled_students(
     """
     return get_enrolled_candidates_list(db, exam_id=exam_id, search=search, status_filter=status)
 
-@router.get("/{exam_id}", response_model=ExamResponse)
+@router.get("/{exam_id:int}", response_model=ExamResponse)
 def get_exam(exam_id: int, db: Session = Depends(get_db)):
     exam = db.query(Exam).options(
         joinedload(Exam.creator), 
@@ -381,18 +403,35 @@ def create_exam(
     if payload.status == ExamStatus.PUBLISHED and (not payload.questions or len(payload.questions) == 0):
         raise HTTPException(status_code=400, detail="Cannot publish an exam without questions. Please add questions or save as DRAFT.")
 
+    # Validate questions exist if provided
+    valid_qids_set = set()
+    if payload.questions:
+        requested_qids = [q.question_id for q in payload.questions]
+        existing_q_rows = db.query(Question.id).filter(Question.id.in_(requested_qids)).all()
+        valid_qids_set = {r[0] for r in existing_q_rows}
+        missing_ids = [qid for qid in requested_qids if qid not in valid_qids_set]
+        if missing_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Question(s) with ID {missing_ids} were not found in the Question Bank. Please re-select questions."
+            )
+
     proctoring = payload.proctoring_enabled if payload.proctoring_enabled is not None else True
     webcam = payload.webcam_monitoring_enabled if payload.webcam_monitoring_enabled is not None else True
     gaze = payload.gaze_tracking_enabled if payload.gaze_tracking_enabled is not None else True
     max_warnings = payload.max_tab_switch_warnings if payload.max_tab_switch_warnings is not None else 3
+
+    # Calculate default passing marks if not specified
+    calc_total_marks = sum(q.marks or 1.0 for q in payload.questions) if payload.questions else (payload.total_marks or 0.0)
+    calc_passing_marks = payload.passing_marks if payload.passing_marks is not None else round(calc_total_marks * 0.4, 2)
 
     new_exam = Exam(
         title=payload.title.strip(),
         subject=payload.subject.strip(),
         description=payload.description.strip() if payload.description else None,
         duration_minutes=payload.duration_minutes,
-        total_questions=len(payload.questions) if payload.questions else 0,
-        passing_marks=payload.passing_marks if payload.passing_marks is not None else 40.0,
+        total_questions=len(valid_qids_set) if payload.questions else 0,
+        passing_marks=calc_passing_marks,
         randomization_enabled=True,
         negative_marking_enabled=False,
         default_negative_marks=0.0,
@@ -411,7 +450,7 @@ def create_exam(
     if payload.questions:
         seen_qids = set()
         for idx, q_link in enumerate(payload.questions):
-            if q_link.question_id in seen_qids:
+            if q_link.question_id in seen_qids or q_link.question_id not in valid_qids_set:
                 continue
             seen_qids.add(q_link.question_id)
             eq = ExamQuestion(
@@ -425,6 +464,9 @@ def create_exam(
         db.commit()
         db.refresh(new_exam)
 
+    # Invalidate session cache to ensure clean joined load
+    db.expire_all()
+
     # Reload with relationships
     created = db.query(Exam).options(
         joinedload(Exam.creator),
@@ -437,7 +479,7 @@ def create_exam(
 
     return serialize_exam(created, db)
 
-@router.put("/{exam_id}", response_model=ExamResponse)
+@router.put("/{exam_id:int}", response_model=ExamResponse)
 def update_exam(
     exam_id: int,
     payload: ExamUpdate,
@@ -492,7 +534,7 @@ def update_exam(
 
     return serialize_exam(updated, db)
 
-@router.post("/{exam_id}/toggle-status", response_model=ExamResponse)
+@router.post("/{exam_id:int}/toggle-status", response_model=ExamResponse)
 def toggle_exam_status(
     exam_id: int,
     current_user: User = Depends(require_approved_examiner),
@@ -525,7 +567,7 @@ def toggle_exam_status(
 
     return serialize_exam(updated, db)
 
-@router.delete("/{exam_id}")
+@router.delete("/{exam_id:int}")
 def delete_exam(
     exam_id: int,
     current_user: User = Depends(require_approved_examiner),

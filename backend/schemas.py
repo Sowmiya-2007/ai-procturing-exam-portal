@@ -161,7 +161,7 @@ class QuestionResponse(BaseModel):
     expected_answer: Optional[str] = None
     model_answer: Optional[str] = None
     evaluation_guidelines: Optional[str] = None
-    created_by: int
+    created_by: Optional[int] = 0
     creator_name: Optional[str] = None
     created_at: datetime
     options: List[QuestionOptionResponse] = Field(default_factory=list)
@@ -277,11 +277,11 @@ class ExamQuestionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class ExamCreate(BaseModel):
-    title: str = Field(..., min_length=3, max_length=255)
-    subject: str = Field(..., min_length=2, max_length=150)
+    title: str = Field(..., min_length=2, max_length=255)
+    subject: str = Field(..., min_length=1, max_length=150)
     description: Optional[str] = None
-    duration_minutes: int = Field(default=60, ge=5)
-    total_marks: float = Field(default=100.0, ge=1.0)
+    duration_minutes: int = Field(default=60, ge=1)
+    total_marks: float = Field(default=100.0, ge=0.0)
     passing_marks: float = Field(default=40.0, ge=0.0)
     status: ExamStatus = ExamStatus.DRAFT
     difficulty_distribution: Optional[str] = None
@@ -324,7 +324,7 @@ class ExamResponse(BaseModel):
     proctoring_enabled: Optional[bool] = True
     webcam_monitoring_enabled: Optional[bool] = True
     gaze_tracking_enabled: Optional[bool] = True
-    created_by: int
+    created_by: Optional[int] = 0
     creator_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime

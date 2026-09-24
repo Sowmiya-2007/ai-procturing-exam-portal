@@ -14,7 +14,8 @@ import {
   Image as ImageIcon,
   Sparkles,
   FileSpreadsheet,
-  X
+  X,
+  Dices
 } from "lucide-react";
 import { api } from "../services/api";
 import { StatCard } from "../components/StatCard";
@@ -146,11 +147,25 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
           </button>
           <button
             onClick={() => setCurrentView("add_question")}
-            className="btn btn-primary"
+            className="btn btn-secondary"
             style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
           >
             <PlusCircle size={18} />
             Add New Question
+          </button>
+          <button
+            onClick={() => setCurrentView("create_exam")}
+            className="btn btn-primary"
+            style={{
+              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+              boxShadow: "0 4px 12px rgba(168, 85, 247, 0.3)",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem"
+            }}
+          >
+            <Dices size={18} />
+            Create Exam
           </button>
         </div>
       </div>

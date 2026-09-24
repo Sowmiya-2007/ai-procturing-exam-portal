@@ -24,7 +24,7 @@ import { StatCard } from "../components/StatCard";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 
-export const StudentDashboard = ({ onEnterExamHall, onViewResult }) => {
+export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "available" }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
 
@@ -33,7 +33,13 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeExamModal, setActiveExamModal] = useState(null);
   const [launchingExam, setLaunchingExam] = useState(false);
-  const [activeTab, setActiveTab] = useState("available"); // "available", "results"
+  const [activeTab, setActiveTab] = useState(initialTab || "available"); // "available", "results"
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const loadDashboard = async (silent = false) => {
     try {
