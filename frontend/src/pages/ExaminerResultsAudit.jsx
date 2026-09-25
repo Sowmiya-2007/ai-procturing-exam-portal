@@ -30,7 +30,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
-import { translateContent, getLocalizedOptionLabel } from "../services/translator";
+import { translateContent, getLocalizedOptionLabel, formatQuestionPrefix } from "../services/translator";
 
 export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken = null, onBack }) => {
   const { user } = useAuth();
@@ -562,7 +562,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                       <div key={qb.question_id} style={{ background: "rgba(15, 23, 42, 0.7)", padding: "1.5rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem", flexWrap: "wrap", gap: "0.5rem" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                            <span style={{ fontWeight: 800, fontSize: "1rem" }}>Q{qb.order}.</span>
+                            <span style={{ fontWeight: 800, fontSize: "1rem" }}>{formatQuestionPrefix(qb.order, language)}.</span>
                             <span className="badge badge-type">{qb.question_type.replace("_", " ")}</span>
                             <span className="badge badge-pending">{qb.marks_possible} {t("examiner.max_marks", "Max Marks")}</span>
                           </div>
@@ -591,7 +591,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                         </div>
 
                         <p style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--text-main)", marginBottom: "0.85rem" }}>
-                          {translateContent(qb.question_text, language)}
+                          {qb[`question_text_${language}`] || translateContent(qb.question_text, language)}
                         </p>
 
                         {/* Candidate Answer Box */}
@@ -601,7 +601,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                           </span>
                           {["SHORT_ANSWER", "LONG_ANSWER"].includes(qb.question_type) && (
                             <p style={{ fontSize: "0.875rem", color: "#f1f5f9", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                              {translateContent(qb.text_answer, language) || t("examiner.no_response_submitted", "No response submitted")}
+                              {qb[`text_answer_${language}`] || translateContent(qb.text_answer, language) || t("examiner.no_response_submitted", "No response submitted")}
                             </p>
                           )}
                           {qb.question_type === "IMAGE_UPLOAD" && (
@@ -621,7 +621,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                                 const isSelected = (qb.selected_option_ids || []).includes(opt.id);
                                 const isCorrectOpt = opt.is_correct;
                                 const letter = getLocalizedOptionLabel(oIdx, language);
-                                const displayOptText = translateContent(opt.option_text, language);
+                                const displayOptText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
                                 return (
                                   <div 
                                     key={opt.id}
@@ -670,7 +670,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                             </span>
                             {qb.model_answer && (
                               <p style={{ fontSize: "0.825rem", color: "#e0e7ff", margin: "0 0 0.35rem" }}>
-                                <strong>{t("modals.model_answer", "Expected / Model Answer:")}</strong> {translateContent(qb.model_answer, language)}
+                                <strong>{t("modals.model_answer", "Expected / Model Answer:")}</strong> {qb[`model_answer_${language}`] || translateContent(qb.model_answer, language)}
                               </p>
                             )}
                             {qb.evaluation_guidelines && (

@@ -8,10 +8,10 @@ export const QuestionDetailModal = ({ question, isOpen, onClose, onEdit, onDelet
   const { language, t } = useLanguage();
   if (!isOpen || !question) return null;
 
-  const displaySubject = translateContent(question.subject, language);
-  const displayQuestionText = translateContent(question.question_text, language);
-  const displayModelAnswer = translateContent(question.model_answer, language);
-  const displayGuidelines = translateContent(question.evaluation_guidelines, language);
+  const displaySubject = question[`subject_${language}`] || translateContent(question.subject, language);
+  const displayQuestionText = question[`question_text_${language}`] || translateContent(question.question_text, language);
+  const displayModelAnswer = question[`model_answer_${language}`] || translateContent(question.model_answer, language);
+  const displayGuidelines = question[`explanation_${language}`] || translateContent(question.evaluation_guidelines, language);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -56,7 +56,7 @@ export const QuestionDetailModal = ({ question, isOpen, onClose, onEdit, onDelet
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {question.options?.map((opt, idx) => {
                 const letter = getLocalizedOptionLabel(idx, language);
-                const displayOptText = translateContent(opt.option_text, language);
+                const displayOptText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
                 return (
                   <div
                     key={opt.id || idx}

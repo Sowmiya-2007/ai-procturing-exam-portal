@@ -31,7 +31,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { TypeBadge, DifficultyBadge } from "../components/StatusBadge";
 import { DocumentQuestionExtractor } from "../components/DocumentQuestionExtractor";
-import { translateContent } from "../services/translator";
+import { translateContent, getLocalizedOptionLabel } from "../services/translator";
 
 export const CreateExam = ({ setCurrentView }) => {
   const { showToast } = useToast();
@@ -1080,14 +1080,15 @@ export const CreateExam = ({ setCurrentView }) => {
                     </div>
 
                     <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-main)", lineHeight: 1.4, fontWeight: 500 }}>
-                      {sq.question?.question_text || "Question Text"}
+                      {sq.question?.[`question_text_${language}`] || translateContent(sq.question?.question_text, language) || "Question Text"}
                     </p>
 
                     {/* MCQ Options Display */}
                     {(sq.question?.question_type === "MCQ" || sq.question?.question_type === "MULTI_SELECT") && (sq.question?.options || []).length > 0 && (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.35rem", marginTop: "0.35rem" }}>
                         {sq.question.options.map((opt, optIdx) => {
-                          const tag = String.fromCharCode(65 + optIdx);
+                          const tag = getLocalizedOptionLabel(optIdx, language);
+                          const optText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
                           return (
                             <div
                               key={`opt-${optIdx}`}
@@ -1104,7 +1105,7 @@ export const CreateExam = ({ setCurrentView }) => {
                               }}
                             >
                               <span style={{ fontWeight: 800, fontFamily: "var(--font-mono)" }}>{tag})</span>
-                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{opt.option_text}</span>
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{optText}</span>
                               {opt.is_correct && <span style={{ marginLeft: "auto", fontSize: "0.65rem", fontWeight: 700 }}>✓ Key</span>}
                             </div>
                           );

@@ -21,7 +21,7 @@ import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
-import { translateContent, getLocalizedOptionLabel, formatQuestionNumLabel } from "../services/translator";
+import { translateContent, getLocalizedOptionLabel, formatQuestionNumLabel, formatQuestionPrefix } from "../services/translator";
 import { LanguageSelector } from "../components/LanguageSelector";
 
 export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
@@ -677,7 +677,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", flexWrap: "wrap" }}>
                   <span style={{ fontWeight: 800, fontSize: "1.15rem", color: "var(--text-main)" }}>
-                    Q{qb.order}.
+                    {formatQuestionPrefix(qb.order, language)}.
                   </span>
                   <span className="badge badge-type">
                     {qb.question_type === "MCQ" ? t("status.mcq_single", null, "MCQ (Single)") : qb.question_type === "MULTI_SELECT" ? t("status.multi_select", null, "Multi-Select") : qb.question_type === "SHORT_ANSWER" ? t("status.short_answer", null, "Short Answer") : qb.question_type === "LONG_ANSWER" ? t("status.long_answer", null, "Long Answer") : t("status.image_upload", null, "Image / Diagram")}
@@ -695,7 +695,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
 
               {/* Question Text (Fully Translated) */}
               <p style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--text-main)", marginBottom: "1.75rem", lineHeight: 1.6 }}>
-                {translateContent(qb.question_text, language)}
+                {qb[`question_text_${language}`] || translateContent(qb.question_text, language)}
               </p>
 
               {/* Answers Comparison depending on Type */}
@@ -713,7 +713,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
                         const isSelected = (qb.selected_option_ids || [])[0] === opt.id;
                         if (!isSelected) return null;
                         const letter = getLocalizedOptionLabel(oIdx, language);
-                        const displayOptionText = translateContent(opt.option_text, language);
+                        const displayOptionText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
                         return (
                           <div key={opt.id} style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: qb.is_correct ? "#34d399" : "#f87171", fontWeight: 700, fontSize: "0.95rem" }}>
                             {qb.is_correct ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
@@ -733,7 +733,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
                         const isSelected = (qb.selected_option_ids || []).includes(opt.id);
                         if (!isSelected) return null;
                         const letter = getLocalizedOptionLabel(oIdx, language);
-                        const displayOptionText = translateContent(opt.option_text, language);
+                        const displayOptionText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
                         return (
                           <div key={opt.id} style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: opt.is_correct ? "#34d399" : "#f87171", fontSize: "0.925rem", fontWeight: 600 }}>
                             {opt.is_correct ? <Check size={16} /> : <X size={16} />}
@@ -749,7 +749,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
 
                   {["SHORT_ANSWER", "LONG_ANSWER"].includes(qb.question_type) && (
                     <p style={{ fontSize: "0.925rem", color: "var(--text-main)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                      {translateContent(qb.text_answer, language) || <span style={{ color: "var(--text-subtle)", fontStyle: "italic" }}>{t("exam_result.no_answer_provided", null, "No answer provided")}</span>}
+                      {qb[`text_answer_${language}`] || translateContent(qb.text_answer, language) || <span style={{ color: "var(--text-subtle)", fontStyle: "italic" }}>{t("exam_result.no_answer_provided", null, "No answer provided")}</span>}
                     </p>
                   )}
 
@@ -781,7 +781,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
                       {qb.options.map((opt, oIdx) => {
                         if (!opt.is_correct) return null;
                         const letter = getLocalizedOptionLabel(oIdx, language);
-                        const displayOptionText = translateContent(opt.option_text, language);
+                        const displayOptionText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
                         return (
                           <div key={opt.id} style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: "#34d399", fontWeight: 800, fontSize: "0.95rem" }}>
                             <CheckCircle2 size={18} />
@@ -797,7 +797,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
                       {qb.options.map((opt, oIdx) => {
                         if (!opt.is_correct) return null;
                         const letter = getLocalizedOptionLabel(oIdx, language);
-                        const displayOptionText = translateContent(opt.option_text, language);
+                        const displayOptionText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
                         return (
                           <div key={opt.id} style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: "#34d399", fontSize: "0.925rem", fontWeight: 700 }}>
                             <Check size={16} />
@@ -810,7 +810,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
 
                   {["SHORT_ANSWER", "LONG_ANSWER", "IMAGE_UPLOAD"].includes(qb.question_type) && (
                     <p style={{ fontSize: "0.9rem", color: "#cbd5e1", lineHeight: 1.6 }}>
-                      {translateContent(qb.model_answer, language) || "Standard reference criteria specified by department examiner."}
+                      {qb[`model_answer_${language}`] || translateContent(qb.model_answer, language) || "Standard reference criteria specified by department examiner."}
                     </p>
                   )}
                 </div>
@@ -821,7 +821,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
                 <div style={{ background: "rgba(99, 102, 241, 0.12)", border: "1px solid rgba(99, 102, 241, 0.28)", padding: "1rem 1.35rem", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   <Sparkles size={18} color="#818cf8" style={{ flexShrink: 0 }} />
                   <span style={{ fontSize: "0.9rem", color: "#c7d2fe", lineHeight: 1.5 }}>
-                    <strong>{t("exam_result.evaluator_note", null, "Evaluator Note:")}</strong> {translateContent(qb.ai_feedback, language)}
+                    <strong>{t("exam_result.evaluator_note", null, "Evaluator Note:")}</strong> {qb[`ai_feedback_${language}`] || translateContent(qb.ai_feedback, language)}
                   </span>
                 </div>
               )}
