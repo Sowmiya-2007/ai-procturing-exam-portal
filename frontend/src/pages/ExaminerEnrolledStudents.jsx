@@ -23,11 +23,12 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import { StatCard } from "../components/StatCard";
+import { translateContent } from "../services/translator";
 
 export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspectSession }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   const [exams, setExams] = useState([]);
   const [selectedExamId, setSelectedExamId] = useState(initialExamId ? String(initialExamId) : "ALL");
@@ -321,7 +322,7 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
               <option value="ALL">{t("examiner.all_configured_exams", "All Configured Examinations")}</option>
               {exams.map((ex) => (
                 <option key={ex.id} value={ex.id}>
-                  {ex.title} ({ex.subject})
+                  {ex[`title_${language}`] || translateContent(ex.title, language)} ({ex[`subject_${language}`] || translateContent(ex.subject, language)})
                 </option>
               ))}
             </select>
@@ -470,10 +471,10 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
                       {/* Examination */}
                       <td style={{ padding: "1rem" }}>
                         <div style={{ fontWeight: 600, color: "var(--text-main)", fontSize: "0.875rem" }}>
-                          {student.exam_title}
+                          {student[`exam_title_${language}`] || translateContent(student.exam_title, language)}
                         </div>
                         <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.15rem" }}>
-                          {student.exam_subject} • {student.duration_minutes} {t("common.mins", "Mins")} • {t("common.total", "Total")} {student.total_marks} {t("common.marks", "Marks")}
+                          {student[`exam_subject_${language}`] || translateContent(student.exam_subject, language)} • {student.duration_minutes} {t("common.mins", "Mins")} • {t("common.total", "Total")} {student.total_marks} {t("common.marks", "Marks")}
                         </div>
                       </td>
 

@@ -31,7 +31,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { TypeBadge, DifficultyBadge } from "../components/StatusBadge";
 import { DocumentQuestionExtractor } from "../components/DocumentQuestionExtractor";
-import { translateContent, getLocalizedOptionLabel } from "../services/translator";
+import { translateContent, getLocalizedOptionLabel, formatQuestionPrefix } from "../services/translator";
 
 export const CreateExam = ({ setCurrentView }) => {
   const { showToast } = useToast();
@@ -1006,12 +1006,12 @@ export const CreateExam = ({ setCurrentView }) => {
                           fontWeight: 800,
                           fontFamily: "var(--font-mono)"
                         }}>
-                          Q#{index + 1}
+                          {formatQuestionPrefix(index + 1, language)}
                         </span>
                         {sq.question?.question_type && <TypeBadge type={sq.question.question_type} />}
                         {sq.question?.difficulty && <DifficultyBadge difficulty={sq.question.difficulty} />}
                         <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
-                          {sq.question?.subject || effectiveSubject}
+                          {translateContent(sq.question?.[`subject_${language}`] || sq.question?.subject || effectiveSubject, language)}
                         </span>
                       </div>
 

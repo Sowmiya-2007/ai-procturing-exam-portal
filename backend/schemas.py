@@ -717,6 +717,18 @@ class EnrolledStudentResponse(BaseModel):
     exam_id: int
     exam_title: str
     exam_subject: str
+    exam_title_en: Optional[str] = None
+    exam_title_ta: Optional[str] = None
+    exam_title_te: Optional[str] = None
+    exam_title_hi: Optional[str] = None
+    exam_title_ml: Optional[str] = None
+    exam_title_kn: Optional[str] = None
+    exam_subject_en: Optional[str] = None
+    exam_subject_ta: Optional[str] = None
+    exam_subject_te: Optional[str] = None
+    exam_subject_hi: Optional[str] = None
+    exam_subject_ml: Optional[str] = None
+    exam_subject_kn: Optional[str] = None
     duration_minutes: int
     session_id: Optional[int] = None
     session_token: Optional[str] = None

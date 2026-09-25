@@ -392,10 +392,10 @@ export const ExaminerDashboard = ({
                         </td>
                         <td>
                           <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.85rem" }}>
-                            {translateContent(sub.exam_title, language)}
+                            {sub[`exam_title_${language}`] || translateContent(sub.exam_title, language)}
                           </div>
                           <div style={{ fontSize: "0.725rem", color: "var(--text-subtle)" }}>
-                            {translateContent(sub.exam_subject, language) || "General"}
+                            {sub[`exam_subject_${language}`] || translateContent(sub.exam_subject, language) || "General"}
                           </div>
                         </td>
                         <td style={{ fontWeight: 700, fontFamily: "var(--font-mono)" }}>
@@ -566,10 +566,10 @@ export const ExaminerDashboard = ({
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                           <span style={{ fontWeight: 800, color: "var(--text-main)", fontSize: "1.05rem" }}>
-                            {translateContent(exam.title, language)}
+                            {exam[`title_${language}`] || translateContent(exam.title, language)}
                           </span>
                           <span className="badge badge-type" style={{ fontSize: "0.75rem" }}>
-                            {translateContent(exam.subject, language) || "General"}
+                            {exam[`subject_${language}`] || translateContent(exam.subject, language) || "General"}
                           </span>
                         </div>
                         <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "flex", gap: "1rem", marginTop: "0.55rem", flexWrap: "wrap" }}>

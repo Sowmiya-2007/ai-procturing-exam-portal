@@ -338,7 +338,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
                           overflow: "hidden"
                         }}
                       >
-                        {translateContent(q.question_text, language)}
+                        {q[`question_text_${language}`] || translateContent(q.question_text, language)}
                       </div>
                       {q.options && q.options.length > 0 && (
                         <span style={{ fontSize: "0.725rem", color: "var(--text-subtle)", marginTop: "2px", display: "inline-block" }}>
@@ -351,7 +351,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
                     </td>
                     <td>
                       <span style={{ fontSize: "0.85rem", color: "var(--text-main)", fontWeight: 500 }}>
-                        {translateContent(q.subject, language)}
+                        {q[`subject_${language}`] || translateContent(q.subject, language)}
                       </span>
                     </td>
                     <td>

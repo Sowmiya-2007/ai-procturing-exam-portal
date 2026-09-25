@@ -33,6 +33,7 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { StudentDetailModal } from "../components/StudentDetailModal";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
+import { translateContent } from "../services/translator";
 
 export const AdminDashboard = ({ 
   setCurrentView, 
@@ -40,7 +41,7 @@ export const AdminDashboard = ({
   initialTab = "all" 
 }) => {
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [activeTab, setActiveTab] = useState(initialTab); // "all", "students", "examiners", "exams"
 
   const [stats, setStats] = useState(null);
@@ -888,10 +889,10 @@ export const AdminDashboard = ({
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 800, color: "var(--text-main)", fontSize: "1.05rem" }}>
-                        {exam.title}
+                        {exam[`title_${language}`] || translateContent(exam.title, language)}
                       </span>
                       <span className="badge badge-type" style={{ fontSize: "0.75rem" }}>
-                        {exam.code || `EXAM-#${exam.id}`} &bull; {exam.subject || "General"}
+                        {exam.code || `EXAM-#${exam.id}`} &bull; {exam[`subject_${language}`] || translateContent(exam.subject, language) || "General"}
                       </span>
                       {exam.creator_name && (
                         <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>

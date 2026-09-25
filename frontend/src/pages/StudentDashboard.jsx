@@ -453,7 +453,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.55rem" }}>
                           <span className="badge badge-type">
-                            {translateContent(res.exam_subject, language)}
+                            {res[`exam_subject_${language}`] || translateContent(res.exam_subject, language)}
                           </span>
                           {res.is_approved ? (
                             <span className="badge badge-result-approved">
@@ -466,13 +466,13 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                           )}
                         </div>
                         <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "var(--text-main)" }}>
-                          {translateContent(res.exam_title, language)}
+                          {res[`exam_title_${language}`] || translateContent(res.exam_title, language)}
                         </h3>
                         <div style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "0.55rem", display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
-                          <span>Submitted: {new Date(res.submitted_at).toLocaleDateString()}</span>
+                          <span>{t("common.submitted_on", null, "Submitted:")} {new Date(res.submitted_at).toLocaleDateString()}</span>
                           <span>&bull;</span>
                           <span style={{ color: "#34d399", fontWeight: 700 }}>
-                            {res.integrity_score}% Proctoring Trust Score
+                            {res.integrity_score}% {t("student_dashboard.trust_score", null, "Proctoring Trust Score")}
                           </span>
                         </div>
                       </div>
@@ -538,14 +538,14 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                 <div key={ann.id} style={{ background: "rgba(15, 23, 42, 0.55)", padding: "1.25rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
                     <span style={{ fontSize: "0.925rem", fontWeight: 800, color: "var(--text-main)" }}>
-                      {ann.title}
+                      {translateContent(ann.title, language)}
                     </span>
                     <span className="badge badge-pending" style={{ fontSize: "0.75rem" }}>
-                      {ann.tag}
+                      {translateContent(ann.tag, language)}
                     </span>
                   </div>
                   <p style={{ fontSize: "0.85rem", color: "var(--text-subtle)", lineHeight: 1.5, margin: 0 }}>
-                    {ann.content}
+                    {translateContent(ann.content, language)}
                   </p>
                 </div>
               ))}

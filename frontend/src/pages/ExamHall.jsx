@@ -839,8 +839,8 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
   // Determine Vision Engine Status strictly from actual pipeline
   const isVisionActive = aiModelLoaded && cameraActive && videoDims.w > 0 && framesProcessed > 0;
   const visionStatusLabel = isVisionActive
-    ? "● Active (MediaPipe FaceLandmarker)"
-    : (modelError ? "✕ Model Error" : (!cameraActive ? "✕ Camera Unavailable" : "● Loading..."));
+    ? `● ${t("exam_hall.vision_active", "Active (MediaPipe FaceLandmarker)")}`
+    : (modelError ? `✕ ${t("exam_hall.model_error", "Model Error")}` : (!cameraActive ? `✕ ${t("exam_hall.cam_unavailable", "Camera Unavailable")}` : `● ${t("common.loading", "Loading...")}`));
 
   // Translated Title & Subject (direct DB multilingual column or dictionary fallback)
   const displayExamTitle = sessionData[`exam_title_${language}`] || translateContent(sessionData.exam_title, language);
