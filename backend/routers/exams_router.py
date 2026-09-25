@@ -17,6 +17,7 @@ from schemas import (
 )
 from auth import require_approved_examiner, get_current_user
 from routers.exam_session_router import calculate_integrity_score
+from services.translation_service import translate_to_all_languages, auto_translate_exam_payload
 
 router = APIRouter(prefix="/api/exams", tags=["Exam Management"])
 
@@ -68,6 +69,12 @@ def serialize_exam(exam: Exam, db: Optional[Session] = None) -> dict:
         "description_hi": getattr(exam, "description_hi", None),
         "description_ml": getattr(exam, "description_ml", None),
         "description_kn": getattr(exam, "description_kn", None),
+        "instructions_en": getattr(exam, "instructions_en", None),
+        "instructions_ta": getattr(exam, "instructions_ta", None),
+        "instructions_te": getattr(exam, "instructions_te", None),
+        "instructions_hi": getattr(exam, "instructions_hi", None),
+        "instructions_ml": getattr(exam, "instructions_ml", None),
+        "instructions_kn": getattr(exam, "instructions_kn", None),
         "duration_minutes": exam.duration_minutes,
         "total_marks": total_m,
         "passing_marks": getattr(exam, "passing_marks", None) if getattr(exam, "passing_marks", None) is not None else round(total_m * 0.4, 2),
@@ -467,10 +474,38 @@ def create_exam(
     calc_total_marks = sum(q.marks or 1.0 for q in payload.questions) if payload.questions else (payload.total_marks or 0.0)
     calc_passing_marks = payload.passing_marks if payload.passing_marks is not None else round(calc_total_marks * 0.4, 2)
 
+    # Perform automatic translation across all 6 languages
+    exam_dict = payload.model_dump()
+    auto_translate_exam_payload(exam_dict)
+
     new_exam = Exam(
         title=payload.title.strip(),
         subject=payload.subject.strip(),
         description=payload.description.strip() if payload.description else None,
+        title_en=exam_dict.get("title_en") or payload.title.strip(),
+        title_ta=exam_dict.get("title_ta"),
+        title_te=exam_dict.get("title_te"),
+        title_hi=exam_dict.get("title_hi"),
+        title_ml=exam_dict.get("title_ml"),
+        title_kn=exam_dict.get("title_kn"),
+        subject_en=exam_dict.get("subject_en") or payload.subject.strip(),
+        subject_ta=exam_dict.get("subject_ta"),
+        subject_te=exam_dict.get("subject_te"),
+        subject_hi=exam_dict.get("subject_hi"),
+        subject_ml=exam_dict.get("subject_ml"),
+        subject_kn=exam_dict.get("subject_kn"),
+        description_en=exam_dict.get("description_en") or (payload.description.strip() if payload.description else None),
+        description_ta=exam_dict.get("description_ta"),
+        description_te=exam_dict.get("description_te"),
+        description_hi=exam_dict.get("description_hi"),
+        description_ml=exam_dict.get("description_ml"),
+        description_kn=exam_dict.get("description_kn"),
+        instructions_en=exam_dict.get("instructions_en"),
+        instructions_ta=exam_dict.get("instructions_ta"),
+        instructions_te=exam_dict.get("instructions_te"),
+        instructions_hi=exam_dict.get("instructions_hi"),
+        instructions_ml=exam_dict.get("instructions_ml"),
+        instructions_kn=exam_dict.get("instructions_kn"),
         duration_minutes=payload.duration_minutes,
         total_questions=len(valid_qids_set) if payload.questions else 0,
         passing_marks=calc_passing_marks,
@@ -542,10 +577,49 @@ def update_exam(
 
     if payload.title is not None:
         exam.title = payload.title.strip()
+        t_trans = translate_to_all_languages(exam.title)
+        exam.title_en = exam.title
+        exam.title_ta = t_trans.get("ta")
+        exam.title_te = t_trans.get("te")
+        exam.title_hi = t_trans.get("hi")
+        exam.title_ml = t_trans.get("ml")
+        exam.title_kn = t_trans.get("kn")
+
     if payload.subject is not None:
         exam.subject = payload.subject.strip()
+        s_trans = translate_to_all_languages(exam.subject)
+        exam.subject_en = exam.subject
+        exam.subject_ta = s_trans.get("ta")
+        exam.subject_te = s_trans.get("te")
+        exam.subject_hi = s_trans.get("hi")
+        exam.subject_ml = s_trans.get("ml")
+        exam.subject_kn = s_trans.get("kn")
+
     if payload.description is not None:
         exam.description = payload.description.strip()
+        d_trans = translate_to_all_languages(exam.description)
+        exam.description_en = exam.description
+        exam.description_ta = d_trans.get("ta")
+        exam.description_te = d_trans.get("te")
+        exam.description_hi = d_trans.get("hi")
+        exam.description_ml = d_trans.get("ml")
+        exam.description_kn = d_trans.get("kn")
+
+    # Explicit manual overrides if supplied
+    for lang in ["en", "ta", "te", "hi", "ml", "kn"]:
+        val = getattr(payload, f"title_{lang}", None)
+        if val is not None:
+            setattr(exam, f"title_{lang}", val)
+        s_val = getattr(payload, f"subject_{lang}", None)
+        if s_val is not None:
+            setattr(exam, f"subject_{lang}", s_val)
+        d_val = getattr(payload, f"description_{lang}", None)
+        if d_val is not None:
+            setattr(exam, f"description_{lang}", d_val)
+        i_val = getattr(payload, f"instructions_{lang}", None)
+        if i_val is not None:
+            setattr(exam, f"instructions_{lang}", i_val)
+
     if payload.passing_marks is not None:
         exam.passing_marks = payload.passing_marks
     if payload.status is not None:

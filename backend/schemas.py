@@ -573,6 +573,13 @@ class ExamSessionStartResponse(BaseModel):
     exam_description_ml: Optional[str] = None
     exam_description_kn: Optional[str] = None
 
+    exam_instructions_en: Optional[str] = None
+    exam_instructions_ta: Optional[str] = None
+    exam_instructions_te: Optional[str] = None
+    exam_instructions_hi: Optional[str] = None
+    exam_instructions_ml: Optional[str] = None
+    exam_instructions_kn: Optional[str] = None
+
 class SaveAnswerRequest(BaseModel):
     question_id: int
     selected_option_ids: Optional[List[int]] = None

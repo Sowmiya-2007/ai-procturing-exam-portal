@@ -440,6 +440,7 @@ export function translateExamObject(exam, lang = "en") {
   const translatedTitle = exam[`title_${lk}`] || translateContent(exam.title, lang);
   const translatedSubject = exam[`subject_${lk}`] || translateContent(exam.subject, lang);
   const translatedDesc = exam[`description_${lk}`] || translateContent(exam.description, lang);
+  const translatedInstructions = exam[`instructions_${lk}`] || translateContent(exam.instructions, lang);
   const translatedQuestions = (exam.exam_questions || []).map(eq => {
     if (!eq.question) return eq;
     return {
@@ -453,6 +454,7 @@ export function translateExamObject(exam, lang = "en") {
     title: translatedTitle,
     subject: translatedSubject,
     description: translatedDesc,
+    instructions: translatedInstructions,
     exam_questions: translatedQuestions
   };
 }
@@ -468,12 +470,14 @@ export function translateExamSessionData(sessionData, lang = "en") {
   const translatedTitle = sessionData[`exam_title_${lk}`] || translateContent(sessionData.exam_title, lang);
   const translatedSubject = sessionData[`exam_subject_${lk}`] || translateContent(sessionData.exam_subject, lang);
   const translatedDesc = sessionData[`exam_description_${lk}`] || translateContent(sessionData.exam_description, lang);
+  const translatedInstructions = sessionData[`exam_instructions_${lk}`] || translateContent(sessionData.exam_instructions, lang);
 
   return {
     ...sessionData,
     exam_title: translatedTitle,
     exam_subject: translatedSubject,
     exam_description: translatedDesc,
+    exam_instructions: translatedInstructions,
     questions: translatedQuestions
   };
 }

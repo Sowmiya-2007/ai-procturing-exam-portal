@@ -15,6 +15,7 @@ from schemas import (
 )
 from app.core.document_extractor import DocumentExtractor
 from auth import require_approved_examiner, get_current_user
+from services.translation_service import auto_translate_question_payload, translate_to_all_languages
 
 router = APIRouter(prefix="/api/questions", tags=["Question Bank Management"])
 
@@ -229,6 +230,10 @@ def create_question(
                 detail="Multi-Select questions must have at least one correct option selected."
             )
 
+    # Perform automatic translation across all 6 languages
+    q_dict = payload.model_dump()
+    auto_translate_question_payload(q_dict)
+
     new_q = Question(
         question_text=payload.question_text.strip(),
         question_type=payload.question_type,
@@ -240,24 +245,24 @@ def create_question(
         expected_answer=payload.expected_answer.strip() if payload.expected_answer else None,
         model_answer=payload.model_answer.strip() if payload.model_answer else None,
         evaluation_guidelines=payload.evaluation_guidelines.strip() if payload.evaluation_guidelines else None,
-        question_text_en=payload.question_text_en or payload.question_text.strip(),
-        question_text_ta=payload.question_text_ta,
-        question_text_te=payload.question_text_te,
-        question_text_hi=payload.question_text_hi,
-        question_text_ml=payload.question_text_ml,
-        question_text_kn=payload.question_text_kn,
-        explanation_en=payload.explanation_en,
-        explanation_ta=payload.explanation_ta,
-        explanation_te=payload.explanation_te,
-        explanation_hi=payload.explanation_hi,
-        explanation_ml=payload.explanation_ml,
-        explanation_kn=payload.explanation_kn,
-        model_answer_en=payload.model_answer_en or payload.model_answer,
-        model_answer_ta=payload.model_answer_ta,
-        model_answer_te=payload.model_answer_te,
-        model_answer_hi=payload.model_answer_hi,
-        model_answer_ml=payload.model_answer_ml,
-        model_answer_kn=payload.model_answer_kn,
+        question_text_en=q_dict.get("question_text_en") or payload.question_text.strip(),
+        question_text_ta=q_dict.get("question_text_ta"),
+        question_text_te=q_dict.get("question_text_te"),
+        question_text_hi=q_dict.get("question_text_hi"),
+        question_text_ml=q_dict.get("question_text_ml"),
+        question_text_kn=q_dict.get("question_text_kn"),
+        explanation_en=q_dict.get("explanation_en") or payload.explanation_en,
+        explanation_ta=q_dict.get("explanation_ta"),
+        explanation_te=q_dict.get("explanation_te"),
+        explanation_hi=q_dict.get("explanation_hi"),
+        explanation_ml=q_dict.get("explanation_ml"),
+        explanation_kn=q_dict.get("explanation_kn"),
+        model_answer_en=q_dict.get("model_answer_en") or payload.model_answer,
+        model_answer_ta=q_dict.get("model_answer_ta"),
+        model_answer_te=q_dict.get("model_answer_te"),
+        model_answer_hi=q_dict.get("model_answer_hi"),
+        model_answer_ml=q_dict.get("model_answer_ml"),
+        model_answer_kn=q_dict.get("model_answer_kn"),
         created_by=current_user.id
     )
     db.add(new_q)
@@ -265,18 +270,18 @@ def create_question(
     db.refresh(new_q)
 
     # Add options if MCQ/MULTI_SELECT
-    if payload.question_type in [QuestionType.MCQ, QuestionType.MULTI_SELECT] and payload.options:
-        for opt in payload.options:
+    if payload.question_type in [QuestionType.MCQ, QuestionType.MULTI_SELECT] and q_dict.get("options"):
+        for opt_data in q_dict["options"]:
             new_opt = QuestionOption(
                 question_id=new_q.id,
-                option_text=opt.option_text.strip(),
-                is_correct=opt.is_correct,
-                option_text_en=opt.option_text_en or opt.option_text.strip(),
-                option_text_ta=opt.option_text_ta,
-                option_text_te=opt.option_text_te,
-                option_text_hi=opt.option_text_hi,
-                option_text_ml=opt.option_text_ml,
-                option_text_kn=opt.option_text_kn,
+                option_text=opt_data.get("option_text", "").strip(),
+                is_correct=opt_data.get("is_correct", False),
+                option_text_en=opt_data.get("option_text_en") or opt_data.get("option_text", "").strip(),
+                option_text_ta=opt_data.get("option_text_ta"),
+                option_text_te=opt_data.get("option_text_te"),
+                option_text_hi=opt_data.get("option_text_hi"),
+                option_text_ml=opt_data.get("option_text_ml"),
+                option_text_kn=opt_data.get("option_text_kn"),
             )
             db.add(new_opt)
         db.commit()
@@ -348,6 +353,14 @@ def update_question(
 
     if payload.question_text is not None:
         q.question_text = payload.question_text.strip()
+        q_trans = translate_to_all_languages(q.question_text)
+        q.question_text_en = q.question_text
+        q.question_text_ta = q_trans.get("ta")
+        q.question_text_te = q_trans.get("te")
+        q.question_text_hi = q_trans.get("hi")
+        q.question_text_ml = q_trans.get("ml")
+        q.question_text_kn = q_trans.get("kn")
+
     if payload.question_type is not None:
         q.question_type = payload.question_type
     if payload.subject is not None:
@@ -364,10 +377,18 @@ def update_question(
         q.expected_answer = payload.expected_answer.strip() if payload.expected_answer else None
     if payload.model_answer is not None:
         q.model_answer = payload.model_answer.strip() if payload.model_answer else None
+        m_trans = translate_to_all_languages(q.model_answer)
+        q.model_answer_en = q.model_answer
+        q.model_answer_ta = m_trans.get("ta")
+        q.model_answer_te = m_trans.get("te")
+        q.model_answer_hi = m_trans.get("hi")
+        q.model_answer_ml = m_trans.get("ml")
+        q.model_answer_kn = m_trans.get("kn")
+
     if payload.evaluation_guidelines is not None:
         q.evaluation_guidelines = payload.evaluation_guidelines.strip() if payload.evaluation_guidelines else None
 
-    # Multilingual updates
+    # Multilingual explicit manual overrides
     for lang in ["en", "ta", "te", "hi", "ml", "kn"]:
         val = getattr(payload, f"question_text_{lang}", None)
         if val is not None:
@@ -383,16 +404,18 @@ def update_question(
     if payload.options is not None:
         db.query(QuestionOption).filter(QuestionOption.question_id == q.id).delete()
         for opt in payload.options:
+            opt_text = opt.option_text.strip()
+            opt_trans = translate_to_all_languages(opt_text)
             new_opt = QuestionOption(
                 question_id=q.id,
-                option_text=opt.option_text.strip(),
+                option_text=opt_text,
                 is_correct=opt.is_correct,
-                option_text_en=opt.option_text_en or opt.option_text.strip(),
-                option_text_ta=opt.option_text_ta,
-                option_text_te=opt.option_text_te,
-                option_text_hi=opt.option_text_hi,
-                option_text_ml=opt.option_text_ml,
-                option_text_kn=opt.option_text_kn,
+                option_text_en=opt.option_text_en or opt_text,
+                option_text_ta=opt.option_text_ta or opt_trans.get("ta"),
+                option_text_te=opt.option_text_te or opt_trans.get("te"),
+                option_text_hi=opt.option_text_hi or opt_trans.get("hi"),
+                option_text_ml=opt.option_text_ml or opt_trans.get("ml"),
+                option_text_kn=opt.option_text_kn or opt_trans.get("kn"),
             )
             db.add(new_opt)
 
@@ -478,7 +501,7 @@ def ai_generate_question(payload: AIGenerateQuestionRequest, current_user: User 
 
     # Smart templates library covering common academic topics
     if q_type == QuestionType.MCQ:
-        return {
+        raw_res = {
             "question_text": f"In {subject} ({topic}), what is the primary computational time complexity of searching an optimal element in a balanced binary search tree of N elements?",
             "question_type": "MCQ",
             "subject": subject,
@@ -494,7 +517,7 @@ def ai_generate_question(payload: AIGenerateQuestionRequest, current_user: User 
             "model_answer": "In a balanced BST (such as AVL or Red-Black Tree), the height is bounded by O(log N). Each step down halves the search space, yielding O(log N) search complexity."
         }
     elif q_type == QuestionType.MULTI_SELECT:
-        return {
+        raw_res = {
             "question_text": f"Which of the following statements are TRUE regarding {topic} in modern {subject} architectures? (Select all that apply)",
             "question_type": "MULTI_SELECT",
             "subject": subject,
@@ -510,7 +533,7 @@ def ai_generate_question(payload: AIGenerateQuestionRequest, current_user: User 
             "model_answer": "Options A, C, and D are valid architectural principles of scalable distributed systems. Option B is false."
         }
     elif q_type == QuestionType.SHORT_ANSWER:
-        return {
+        raw_res = {
             "question_text": f"Define the core principle of {topic} in {subject} and state two primary use cases.",
             "question_type": "SHORT_ANSWER",
             "subject": subject,
@@ -521,7 +544,7 @@ def ai_generate_question(payload: AIGenerateQuestionRequest, current_user: User 
             "model_answer": f"{topic} is a foundational mechanism in {subject} designed to optimize throughput and maintain consistency.\n\nKey Use Cases:\n1. Low-latency caching and query acceleration\n2. Real-time stream processing and event aggregation."
         }
     elif q_type == QuestionType.LONG_ANSWER:
-        return {
+        raw_res = {
             "question_text": f"Provide an in-depth architectural breakdown of {topic} in {subject}. Analyze the mathematical formulations, trade-offs between latency and throughput, and describe a real-world enterprise implementation.",
             "question_type": "LONG_ANSWER",
             "subject": subject,
@@ -533,7 +556,7 @@ def ai_generate_question(payload: AIGenerateQuestionRequest, current_user: User 
             "evaluation_guidelines": "Award 10 marks total: 3 marks for system design, 3 marks for theory/equations, 2 marks for trade-off matrix, 2 marks for industrial implementation details."
         }
     else: # IMAGE_UPLOAD
-        return {
+        raw_res = {
             "question_text": f"Draw the complete circuit schematic / architectural block diagram for {topic} in {subject}. Upload a clear handwritten diagram showing all input/output buses, clock lines, control signals, and truth tables.",
             "question_type": "IMAGE_UPLOAD",
             "subject": subject,
@@ -544,6 +567,8 @@ def ai_generate_question(payload: AIGenerateQuestionRequest, current_user: User 
             "model_answer": "Expected Diagram Components:\n1. Central Processing/Control Unit with clear pin mappings.\n2. Labeled address/data buses (16/32-bit).\n3. Timing waveforms indicating setup and hold times.\n4. Complete truth table with minterms.",
             "evaluation_guidelines": "AI Vision assisted rubric:\n- Neatness & Labeling: 4 marks\n- Accurate bus topologies & clock routing: 6 marks\n- Truth table and state transition verification: 5 marks"
         }
+
+    return auto_translate_question_payload(raw_res)
 
 @router.post("/extract-document", response_model=DocumentExtractionResponse)
 async def extract_questions_from_document(
@@ -715,6 +740,10 @@ def batch_create_questions(
                         detail=f"Multi-Select Question #{idx + 1} must have at least 1 correct option selected."
                     )
 
+            # Auto-translate question and its options across all 6 languages
+            q_dict = q_data.model_dump()
+            auto_translate_question_payload(q_dict)
+
             # Check if replacing existing question
             replace_id = getattr(q_data, "replace_question_id", None)
             target_q = None
@@ -722,7 +751,7 @@ def batch_create_questions(
                 target_q = db.query(Question).filter(Question.id == replace_id).first()
 
             if target_q:
-                # Update existing question in-place
+                # Update existing question in-place with all translations
                 target_q.question_text = q_data.question_text.strip()
                 target_q.question_type = q_data.question_type
                 target_q.subject = q_data.subject.strip()
@@ -730,17 +759,44 @@ def batch_create_questions(
                 target_q.max_marks = q_data.marks
                 target_q.negative_marks = q_data.negative_marks
                 target_q.model_answer = q_data.model_answer.strip() if q_data.model_answer else None
+
+                target_q.question_text_en = q_dict.get("question_text_en") or q_data.question_text.strip()
+                target_q.question_text_ta = q_dict.get("question_text_ta")
+                target_q.question_text_te = q_dict.get("question_text_te")
+                target_q.question_text_hi = q_dict.get("question_text_hi")
+                target_q.question_text_ml = q_dict.get("question_text_ml")
+                target_q.question_text_kn = q_dict.get("question_text_kn")
+
+                target_q.explanation_en = q_dict.get("explanation_en") or q_data.explanation_en
+                target_q.explanation_ta = q_dict.get("explanation_ta")
+                target_q.explanation_te = q_dict.get("explanation_te")
+                target_q.explanation_hi = q_dict.get("explanation_hi")
+                target_q.explanation_ml = q_dict.get("explanation_ml")
+                target_q.explanation_kn = q_dict.get("explanation_kn")
+
+                target_q.model_answer_en = q_dict.get("model_answer_en") or q_data.model_answer
+                target_q.model_answer_ta = q_dict.get("model_answer_ta")
+                target_q.model_answer_te = q_dict.get("model_answer_te")
+                target_q.model_answer_hi = q_dict.get("model_answer_hi")
+                target_q.model_answer_ml = q_dict.get("model_answer_ml")
+                target_q.model_answer_kn = q_dict.get("model_answer_kn")
                 
                 # Delete existing options and insert new
                 db.query(QuestionOption).filter(QuestionOption.question_id == target_q.id).delete()
                 db.flush()
 
-                if q_data.question_type in [QuestionType.MCQ, QuestionType.MULTI_SELECT] and q_data.options:
-                    for opt in q_data.options:
+                if q_data.question_type in [QuestionType.MCQ, QuestionType.MULTI_SELECT] and q_dict.get("options"):
+                    for opt_data in q_dict["options"]:
                         new_opt = QuestionOption(
                             question_id=target_q.id,
-                            option_text=opt.option_text.strip(),
-                            is_correct=opt.is_correct
+                            option_text=opt_data.get("option_text", "").strip(),
+                            is_correct=opt_data.get("is_correct", False),
+                            option_text_en=opt_data.get("option_text_en") or opt_data.get("option_text", "").strip(),
+                            option_text_ta=opt_data.get("option_text_ta"),
+                            option_text_te=opt_data.get("option_text_te"),
+                            option_text_hi=opt_data.get("option_text_hi"),
+                            option_text_ml=opt_data.get("option_text_ml"),
+                            option_text_kn=opt_data.get("option_text_kn"),
                         )
                         db.add(new_opt)
 
@@ -748,7 +804,7 @@ def batch_create_questions(
                 updated_count += 1
 
             else:
-                # Create brand new question
+                # Create brand new question with all translations
                 new_q = Question(
                     question_text=q_data.question_text.strip(),
                     question_type=q_data.question_type,
@@ -757,17 +813,41 @@ def batch_create_questions(
                     max_marks=q_data.marks,
                     negative_marks=q_data.negative_marks,
                     model_answer=q_data.model_answer.strip() if q_data.model_answer else None,
+                    question_text_en=q_dict.get("question_text_en") or q_data.question_text.strip(),
+                    question_text_ta=q_dict.get("question_text_ta"),
+                    question_text_te=q_dict.get("question_text_te"),
+                    question_text_hi=q_dict.get("question_text_hi"),
+                    question_text_ml=q_dict.get("question_text_ml"),
+                    question_text_kn=q_dict.get("question_text_kn"),
+                    explanation_en=q_dict.get("explanation_en") or q_data.explanation_en,
+                    explanation_ta=q_dict.get("explanation_ta"),
+                    explanation_te=q_dict.get("explanation_te"),
+                    explanation_hi=q_dict.get("explanation_hi"),
+                    explanation_ml=q_dict.get("explanation_ml"),
+                    explanation_kn=q_dict.get("explanation_kn"),
+                    model_answer_en=q_dict.get("model_answer_en") or q_data.model_answer,
+                    model_answer_ta=q_dict.get("model_answer_ta"),
+                    model_answer_te=q_dict.get("model_answer_te"),
+                    model_answer_hi=q_dict.get("model_answer_hi"),
+                    model_answer_ml=q_dict.get("model_answer_ml"),
+                    model_answer_kn=q_dict.get("model_answer_kn"),
                     created_by=current_user.id
                 )
                 db.add(new_q)
                 db.flush()
 
-                if q_data.question_type in [QuestionType.MCQ, QuestionType.MULTI_SELECT] and q_data.options:
-                    for opt in q_data.options:
+                if q_data.question_type in [QuestionType.MCQ, QuestionType.MULTI_SELECT] and q_dict.get("options"):
+                    for opt_data in q_dict["options"]:
                         new_opt = QuestionOption(
                             question_id=new_q.id,
-                            option_text=opt.option_text.strip(),
-                            is_correct=opt.is_correct
+                            option_text=opt_data.get("option_text", "").strip(),
+                            is_correct=opt_data.get("is_correct", False),
+                            option_text_en=opt_data.get("option_text_en") or opt_data.get("option_text", "").strip(),
+                            option_text_ta=opt_data.get("option_text_ta"),
+                            option_text_te=opt_data.get("option_text_te"),
+                            option_text_hi=opt_data.get("option_text_hi"),
+                            option_text_ml=opt_data.get("option_text_ml"),
+                            option_text_kn=opt_data.get("option_text_kn"),
                         )
                         db.add(new_opt)
 
