@@ -4,9 +4,11 @@ import { api } from "../services/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { StudentDetailModal } from "../components/StudentDetailModal";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export const ApprovedStudents = () => {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -58,11 +60,11 @@ export const ApprovedStudents = () => {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
             <span className="badge badge-approved">
-              <CheckCircle2 size={12} /> Verified Candidates
+              <CheckCircle2 size={12} /> {t("landing.approved_card_title", "Verified Candidates")}
             </span>
           </div>
           <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.02em" }}>
-            Approved Students Directory
+            {t("sidebar.enrolled_students", "Approved Students Directory")}
           </h1>
           <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
             Enrolled candidates authorized to participate in online proctored examinations
@@ -71,7 +73,7 @@ export const ApprovedStudents = () => {
 
         <button onClick={fetchStudents} className="btn btn-secondary btn-sm">
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          Refresh Directory
+          {t("common.refresh", "Refresh Directory")}
         </button>
       </div>
 
@@ -82,7 +84,7 @@ export const ApprovedStudents = () => {
             <input
               type="text"
               className="form-control"
-              placeholder="Search by Name, Email, or Register Number..."
+              placeholder={t("common.search", "Search by Name, Email, or Register Number...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: "2.5rem" }}
@@ -98,14 +100,14 @@ export const ApprovedStudents = () => {
             >
               {departments.map((dept) => (
                 <option key={dept} value={dept}>
-                  {dept === "ALL" ? "All Departments" : dept}
+                  {dept === "ALL" ? t("common.all", "All Departments") : dept}
                 </option>
               ))}
             </select>
           </div>
 
           <button type="submit" className="btn btn-primary">
-            Search Directory
+            {t("common.search", "Search Directory")}
           </button>
         </form>
       </div>
@@ -116,21 +118,21 @@ export const ApprovedStudents = () => {
           <table className="custom-table">
             <thead>
               <tr>
-                <th>Student Name</th>
-                <th>Register Number</th>
-                <th>Institutional Email</th>
-                <th>Department</th>
-                <th>Academic Year</th>
-                <th>Approval Date</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
+                <th>{t("admin.tab_students", "Student Name")}</th>
+                <th>{t("modals.register_number", "Register Number")}</th>
+                <th>{t("common.email", "Institutional Email")}</th>
+                <th>{t("common.department", "Department")}</th>
+                <th>{t("common.year", "Academic Year")}</th>
+                <th>{t("common.created_at", "Approval Date")}</th>
+                <th>{t("common.status", "Status")}</th>
+                <th style={{ textAlign: "right" }}>{t("common.actions", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
                   <td colSpan="8" style={{ textAlign: "center", color: "var(--text-muted)", padding: "3rem" }}>
-                    Loading verified students...
+                    {t("common.loading", "Loading verified students...")}
                   </td>
                 </tr>
               ) : students.length > 0 ? (
@@ -143,7 +145,7 @@ export const ApprovedStudents = () => {
                     </td>
                     <td>
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--primary-light)", fontWeight: 700 }}>
-                        {student.register_number || "N/A"}
+                        {student.register_number || t("common.na", "N/A")}
                       </span>
                     </td>
                     <td>
@@ -177,7 +179,7 @@ export const ApprovedStudents = () => {
                           setShowDetailModal(true);
                         }}
                       >
-                        <Eye size={14} /> Dossier
+                        <Eye size={14} /> {t("admin.inspect_btn", "Dossier")}
                       </button>
                     </td>
                   </tr>

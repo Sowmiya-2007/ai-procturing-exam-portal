@@ -24,6 +24,35 @@ class Exam(Base):
     negative_marking_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     default_negative_marks: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     passing_marks: Mapped[Optional[float]] = mapped_column(Float, default=40.0, nullable=True)
+
+    # Multilingual support fields for Exam Title, Subject, Description, Instructions
+    title_en: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    title_ta: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    title_te: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    title_hi: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    title_ml: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    title_kn: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    subject_en: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    subject_ta: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    subject_te: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    subject_hi: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    subject_ml: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    subject_kn: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+
+    description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_ta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_te: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_hi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_ml: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_kn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    instructions_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instructions_ta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instructions_te: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instructions_hi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instructions_ml: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    instructions_kn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

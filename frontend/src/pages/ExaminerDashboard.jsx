@@ -13,6 +13,8 @@ import { useToast } from "../context/ToastContext";
 import { StatusBadge } from "../components/StatusBadge";
 import { StatCard } from "../components/StatCard";
 import { DocumentQuestionExtractor } from "../components/DocumentQuestionExtractor";
+import { useLanguage } from "../context/LanguageContext";
+import { translateContent } from "../services/translator";
 
 export const ExaminerDashboard = ({ 
   setCurrentView, 
@@ -23,6 +25,7 @@ export const ExaminerDashboard = ({
 }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { language, t } = useLanguage();
 
   const [questionStats, setQuestionStats] = useState(null);
   const [exams, setExams] = useState([]);
@@ -121,11 +124,11 @@ export const ExaminerDashboard = ({
       <div className="dashboard-header">
         <div className="dashboard-title-group">
           <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-            <h1>Examiner Command Center</h1>
+            <h1>{t("examiner.command_center", "Examiner Command Center")}</h1>
             <StatusBadge status={approvalStatus} />
           </div>
           <p>
-            Faculty Portal &bull; <strong>{user?.name || "Examiner"}</strong> ({user?.department || "Department of Engineering"})
+            {t("examiner.faculty_portal", "Faculty Portal")} &bull; <strong>{user?.name || "Examiner"}</strong> ({user?.department || "Department of Engineering"})
           </p>
         </div>
 
@@ -140,7 +143,7 @@ export const ExaminerDashboard = ({
               style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
             >
               <RefreshCw size={14} className={refreshing ? "spin-animation" : ""} />
-              Sync Submissions
+              {t("examiner.sync_submissions", "Sync Submissions")}
             </button>
             <button
               onClick={() => setShowExtractModal(true)}
@@ -152,14 +155,14 @@ export const ExaminerDashboard = ({
               }}
             >
               <FileSpreadsheet size={15} color="#34d399" />
-              Import (PDF/Excel)
+              {t("examiner.import_doc", "Import (PDF/Excel)")}
             </button>
             <button
               onClick={() => setCurrentView("add_question")}
               className="btn btn-secondary btn-sm"
             >
               <PlusCircle size={15} />
-              New Question
+              {t("examiner.new_question", "New Question")}
             </button>
             <button
               onClick={() => setCurrentView("create_exam")}
@@ -170,7 +173,7 @@ export const ExaminerDashboard = ({
               }}
             >
               <Dices size={15} />
-              + Create Exam
+              {t("examiner.create_exam_btn", "+ Create Exam")}
             </button>
           </div>
         )}
@@ -210,21 +213,21 @@ export const ExaminerDashboard = ({
 
             <div>
               <h3 style={{ margin: "0 0 0.35rem", fontSize: "1.15rem", fontWeight: 700, color: "#fef3c7" }}>
-                Account Pending Verification
+                {t("examiner.pending_banner_title", "Account Pending Verification")}
               </h3>
               <p style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", color: "#fde68a", fontWeight: 600 }}>
-                "Your examiner account is pending admin approval."
+                "{t("examiner.pending_banner_desc", "Your examiner account is pending admin approval.")}"
               </p>
               <p style={{ margin: "0 0 0.75rem", fontSize: "0.85rem", color: "#d1d5db", lineHeight: 1.5 }}>
-                An administrator is verifying your faculty credentials. Once approved, question authoring, exam generation, and student grading privileges will be active immediately.
+                {t("examiner.pending_banner_sub", "An administrator is verifying your faculty credentials. Once approved, question authoring, exam generation, and student grading privileges will be active immediately.")}
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", fontSize: "0.75rem", color: "#9ca3af" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  <Lock size={12} color="#f59e0b" /> Question Bank (Locked)
+                  <Lock size={12} color="#f59e0b" /> {t("sidebar.question_bank", "Question Bank")} (Locked)
                 </span>
                 <span>•</span>
                 <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  <Lock size={12} color="#f59e0b" /> Create Exam (Locked)
+                  <Lock size={12} color="#f59e0b" /> {t("sidebar.create_exam", "Create Exam")} (Locked)
                 </span>
               </div>
             </div>
@@ -297,35 +300,35 @@ export const ExaminerDashboard = ({
           {/* KPI Metrics */}
           <div className="dashboard-stats-grid">
             <StatCard
-              title="Question Bank Pool"
+              title={t("examiner.stats_questions", "Question Bank Pool")}
               value={questionStats?.total_questions || 0}
               icon={FileQuestion}
               color="indigo"
-              subtitle="Universal Items"
+              subtitle={t("examiner.stats_questions_sub", "Universal Items")}
               badgeText="Active Bank"
             />
             <StatCard
-              title="Configured Exams"
+              title={t("examiner.stats_exams", "Configured Exams")}
               value={exams.length}
               icon={Layers}
               color="purple"
-              subtitle="Active Blueprints"
+              subtitle={t("examiner.stats_exams_sub", "Active Blueprints")}
               badgeText="Live Papers"
             />
             <StatCard
-              title="Student Submissions"
+              title={t("examiner.stats_candidates", "Student Submissions")}
               value={submissions.length}
               icon={FileCheck}
               color="cyan"
-              subtitle="Submitted Attempts"
+              subtitle={t("examiner.stats_candidates_sub", "Submitted Attempts")}
               badgeText="Results Feed"
             />
             <StatCard
-              title="Pending Verification"
+              title={t("examiner.stats_pending_audit", "Pending Verification")}
               value={pendingSubmissionsCount}
               icon={Clock}
               color={pendingSubmissionsCount > 0 ? "amber" : "emerald"}
-              subtitle={pendingSubmissionsCount > 0 ? "Requires Audit" : "All Released"}
+              subtitle={pendingSubmissionsCount > 0 ? t("examiner.stats_pending_audit_sub", "Requires Audit") : t("landing.approved_badge", "All Released")}
               badgeText={pendingSubmissionsCount > 0 ? "Action Required" : "Up to Date"}
             />
           </div>
@@ -336,7 +339,7 @@ export const ExaminerDashboard = ({
               <div>
                 <h2 style={{ fontSize: "1.3rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <FileCheck size={20} color="#818cf8" />
-                  Live Candidate Exam Results & Submissions
+                  {t("examiner.recent_submissions_title", "Live Candidate Exam Results & Submissions")}
                 </h2>
                 <p style={{ fontSize: "0.85rem", color: "var(--text-subtle)", margin: "0.25rem 0 0" }}>
                   Submissions received from the student exam hall with automated scores and AI proctoring telemetry
@@ -349,7 +352,7 @@ export const ExaminerDashboard = ({
                   className="btn btn-secondary btn-sm"
                   style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
                 >
-                  View All Submissions & Audit ({submissions.length}) <ChevronRight size={14} />
+                  {t("examiner.audit_submissions", { count: submissions.length })} <ChevronRight size={14} />
                 </button>
               </div>
             </div>
@@ -357,7 +360,7 @@ export const ExaminerDashboard = ({
             {submissions.length === 0 ? (
               <div style={{ textAlign: "center", padding: "2.5rem 1.5rem", border: "1.5px dashed var(--border-color)", borderRadius: "var(--radius-md)", color: "var(--text-muted)" }}>
                 <GraduationCap size={32} color="#818cf8" style={{ margin: "0 auto 0.5rem" }} />
-                <div style={{ fontWeight: 700, color: "var(--text-main)", marginBottom: "0.25rem" }}>No candidate exam submissions yet</div>
+                <div style={{ fontWeight: 700, color: "var(--text-main)", marginBottom: "0.25rem" }}>{t("examiner.no_submissions", "No candidate exam submissions yet")}</div>
                 <p style={{ fontSize: "0.825rem", margin: 0 }}>
                   When students start and complete exams in the student portal, their live scores, answers, and proctoring trust scores will appear here automatically.
                 </p>
@@ -367,14 +370,14 @@ export const ExaminerDashboard = ({
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Candidate</th>
-                      <th>Register No</th>
-                      <th>Examination Paper</th>
-                      <th>Score / Max</th>
-                      <th>Result</th>
-                      <th>Proctor Trust</th>
-                      <th>Status</th>
-                      <th>Actions</th>
+                      <th>{t("examiner.candidate_col", "Candidate")}</th>
+                      <th>{t("modals.register_number", "Register No")}</th>
+                      <th>{t("examiner.exam_col", "Examination Paper")}</th>
+                      <th>{t("examiner.score_col", "Score / Max")}</th>
+                      <th>{t("common.status", "Result")}</th>
+                      <th>{t("examiner.integrity_col", "Proctor Trust")}</th>
+                      <th>{t("common.status", "Status")}</th>
+                      <th>{t("examiner.action_col", "Actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -389,10 +392,10 @@ export const ExaminerDashboard = ({
                         </td>
                         <td>
                           <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.85rem" }}>
-                            {sub.exam_title}
+                            {translateContent(sub.exam_title, language)}
                           </div>
                           <div style={{ fontSize: "0.725rem", color: "var(--text-subtle)" }}>
-                            {sub.exam_subject || "General"}
+                            {translateContent(sub.exam_subject, language) || "General"}
                           </div>
                         </td>
                         <td style={{ fontWeight: 700, fontFamily: "var(--font-mono)" }}>
@@ -400,7 +403,7 @@ export const ExaminerDashboard = ({
                         </td>
                         <td>
                           <span className={`badge ${sub.passed ? "badge-approved" : "badge-rejected"}`} style={{ fontSize: "0.72rem" }}>
-                            {sub.passed ? "PASSED" : "FAILED"}
+                            {sub.passed ? t("common.passed", "PASSED") : t("common.failed", "FAILED")}
                           </span>
                         </td>
                         <td>
@@ -418,11 +421,11 @@ export const ExaminerDashboard = ({
                         <td>
                           {sub.is_approved ? (
                             <span className="badge badge-result-approved" style={{ fontSize: "0.72rem" }}>
-                              <CheckCircle2 size={11} /> Released
+                              <CheckCircle2 size={11} /> {t("common.approved", "Released")}
                             </span>
                           ) : (
                             <span className="badge badge-under-review" style={{ fontSize: "0.72rem" }}>
-                              <Clock size={11} /> Pending Review
+                              <Clock size={11} /> {t("common.under_review", "Pending Review")}
                             </span>
                           )}
                         </td>
@@ -439,7 +442,7 @@ export const ExaminerDashboard = ({
                               className="btn btn-secondary"
                               style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
                             >
-                              <Eye size={12} /> Audit & Grade
+                              <Eye size={12} /> {t("admin.inspect_btn", "Audit & Grade")}
                             </button>
                             {!sub.is_approved && (
                               <button
@@ -448,7 +451,7 @@ export const ExaminerDashboard = ({
                                 className="btn btn-emerald"
                                 style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
                               >
-                                <CheckCircle2 size={12} /> Release
+                                <CheckCircle2 size={12} /> {t("examiner.quick_approve", "Release")}
                               </button>
                             )}
                           </div>
@@ -469,7 +472,7 @@ export const ExaminerDashboard = ({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1.25rem" }}>
                 <div>
                   <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0 }}>
-                    Configured Examination Blueprints
+                    {t("examiner.created_exams_title", "Configured Examination Blueprints")}
                   </h2>
                   <p style={{ fontSize: "0.9rem", color: "var(--text-subtle)", margin: "0.35rem 0 0" }}>
                     Active examination schedules & randomized question papers
@@ -481,7 +484,7 @@ export const ExaminerDashboard = ({
                     <Search size={16} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)" }} />
                     <input
                       type="text"
-                      placeholder="Filter exams..."
+                      placeholder={t("examiner.search_exams_placeholder", "Filter exams...")}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       style={{
@@ -496,7 +499,7 @@ export const ExaminerDashboard = ({
                     />
                   </div>
                   <span className="badge badge-approved" style={{ fontSize: "0.8rem", padding: "0.35rem 0.85rem" }}>
-                    {exams.length} Active
+                    {exams.length} {t("common.active", "Active")}
                   </span>
                   <button
                     onClick={() => setCurrentView("create_exam")}
@@ -512,7 +515,7 @@ export const ExaminerDashboard = ({
                     }}
                   >
                     <Dices size={15} />
-                    + Create Exam
+                    {t("examiner.create_exam_btn", "+ Create Exam")}
                   </button>
                 </div>
               </div>
@@ -521,7 +524,7 @@ export const ExaminerDashboard = ({
                 <div style={{ textAlign: "center", padding: "4rem 2rem", color: "var(--text-muted)", border: "1.5px dashed var(--border-color)", borderRadius: "var(--radius-lg)" }}>
                   <Layers size={36} color="#818cf8" style={{ margin: "0 auto 1rem" }} />
                   <div style={{ fontWeight: 800, color: "var(--text-main)", fontSize: "1.1rem", marginBottom: "0.45rem" }}>
-                    {searchTerm ? "No matching examinations found" : "No active exams configured yet"}
+                    {searchTerm ? "No matching examinations found" : t("examiner.no_exams_found", "No active exams configured yet")}
                   </div>
                   <p style={{ fontSize: "0.875rem", color: "var(--text-subtle)", marginBottom: "1.5rem" }}>
                     Create a new examination blueprint and populate it with randomized questions.
@@ -531,7 +534,7 @@ export const ExaminerDashboard = ({
                     className="btn btn-primary"
                     style={{ padding: "0.65rem 1.4rem" }}
                   >
-                    <Dices size={16} /> + Create New Exam
+                    <Dices size={16} /> {t("examiner.create_first_exam", "+ Create New Exam")}
                   </button>
                 </div>
               ) : (
@@ -563,29 +566,29 @@ export const ExaminerDashboard = ({
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                           <span style={{ fontWeight: 800, color: "var(--text-main)", fontSize: "1.05rem" }}>
-                            {exam.title}
+                            {translateContent(exam.title, language)}
                           </span>
                           <span className="badge badge-type" style={{ fontSize: "0.75rem" }}>
-                            {exam.subject || "General"}
+                            {translateContent(exam.subject, language) || "General"}
                           </span>
                         </div>
                         <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "flex", gap: "1rem", marginTop: "0.55rem", flexWrap: "wrap" }}>
-                          <span>⏱ {exam.duration_minutes} mins</span>
+                          <span>⏱ {exam.duration_minutes} {t("common.mins", "mins")}</span>
                           <span>&bull;</span>
-                          <span>🏆 {exam.total_marks} Marks</span>
+                          <span>🏆 {exam.total_marks} {t("common.marks", "Marks")}</span>
                           <span>&bull;</span>
-                          <span>📝 {exam.questions_count || exam.exam_questions?.length || 0} Questions</span>
+                          <span>📝 {exam.questions_count || exam.exam_questions?.length || 0} {t("common.questions", "Questions")}</span>
                         </div>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", flexShrink: 0 }}>
                         {exam.status === "PUBLISHED" ? (
                           <span className="badge badge-approved" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                            <CheckCircle2 size={12} color="#34d399" /> Live in Student Portal
+                            <CheckCircle2 size={12} color="#34d399" /> {t("common.published", "Live in Student Portal")}
                           </span>
                         ) : (
                           <span className="badge badge-pending" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                            <Clock size={12} color="#fbbf24" /> Draft (Hidden)
+                            <Clock size={12} color="#fbbf24" /> {t("common.draft", "Draft (Hidden)")}
                           </span>
                         )}
 
@@ -602,9 +605,9 @@ export const ExaminerDashboard = ({
                           }}
                         >
                           {exam.status === "PUBLISHED" ? (
-                            <>To Draft</>
+                            <>{t("examiner.toggle_draft", "To Draft")}</>
                           ) : (
-                            <><CheckCircle2 size={13} /> Publish Now</>
+                            <><CheckCircle2 size={13} /> {t("examiner.toggle_publish", "Publish Now")}</>
                           )}
                         </button>
 
@@ -626,7 +629,7 @@ export const ExaminerDashboard = ({
                             padding: "0.4rem 0.75rem"
                           }}
                         >
-                          <FileCheck size={14} color="#34d399" /> Results
+                          <FileCheck size={14} color="#34d399" /> {t("sidebar.my_results", "Results")}
                         </button>
 
                         <button
@@ -647,7 +650,7 @@ export const ExaminerDashboard = ({
                             padding: "0.4rem 0.75rem"
                           }}
                         >
-                          <Users size={14} color="#818cf8" /> Candidates
+                          <Users size={14} color="#818cf8" /> {t("examiner.candidate_col", "Candidates")}
                         </button>
 
                         <button
@@ -697,7 +700,7 @@ export const ExaminerDashboard = ({
                       <Dices size={18} />
                     </div>
                     <div className="tool-tile-body">
-                      <div className="tool-tile-title" style={{ color: "#e9d5ff" }}>Create Examination Blueprint</div>
+                      <div className="tool-tile-title" style={{ color: "#e9d5ff" }}>{t("sidebar.create_exam", "Create Exam Blueprint")}</div>
                       <div className="tool-tile-subtitle">Assemble randomized paper, timer & proctoring</div>
                     </div>
                     <span className="badge badge-approved" style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}>New</span>
@@ -713,7 +716,7 @@ export const ExaminerDashboard = ({
                       <BookOpen size={18} />
                     </div>
                     <div className="tool-tile-body">
-                      <div className="tool-tile-title">Question Bank Hub</div>
+                      <div className="tool-tile-title">{t("sidebar.question_bank", "Question Bank Hub")}</div>
                       <div className="tool-tile-subtitle">Browse, filter & edit repository</div>
                     </div>
                     <ChevronRight size={16} color="var(--text-subtle)" />
@@ -728,7 +731,7 @@ export const ExaminerDashboard = ({
                       <FileSpreadsheet size={18} />
                     </div>
                     <div className="tool-tile-body">
-                      <div className="tool-tile-title">Document Extractor</div>
+                      <div className="tool-tile-title">{t("examiner.import_doc", "Document Extractor")}</div>
                       <div className="tool-tile-subtitle">Bulk import PDF, Word, Excel</div>
                     </div>
                     <ChevronRight size={16} color="var(--text-subtle)" />
@@ -758,7 +761,7 @@ export const ExaminerDashboard = ({
                       <Users size={18} />
                     </div>
                     <div className="tool-tile-body">
-                      <div className="tool-tile-title">Enrolled Candidates</div>
+                      <div className="tool-tile-title">{t("sidebar.enrolled_students", "Enrolled Candidates")}</div>
                       <div className="tool-tile-subtitle">Rosters, attendance & scores</div>
                     </div>
                     <ChevronRight size={16} color="var(--text-subtle)" />
@@ -773,7 +776,7 @@ export const ExaminerDashboard = ({
                       <FileCheck size={18} />
                     </div>
                     <div className="tool-tile-body">
-                      <div className="tool-tile-title">Candidate Exam Results & Audit</div>
+                      <div className="tool-tile-title">{t("sidebar.candidate_submissions", "Candidate Exam Results & Audit")}</div>
                       <div className="tool-tile-subtitle">Review student scores & release scorecards</div>
                     </div>
                     <ChevronRight size={16} color="var(--text-subtle)" />
@@ -841,7 +844,7 @@ export const ExaminerDashboard = ({
               <div>
                 <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--text-main)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <FileSpreadsheet size={18} color="#34d399" />
-                  Import Questions to Repository
+                  {t("examiner.import_doc", "Import Questions to Repository")}
                 </h3>
                 <p style={{ margin: "0.15rem 0 0", fontSize: "0.785rem", color: "var(--text-muted)" }}>
                   Upload Excel, Word, PDF or paste text to bulk extract questions directly into your Question Bank.

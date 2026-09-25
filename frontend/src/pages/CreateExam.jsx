@@ -28,12 +28,15 @@ import {
 import { api, formatError } from "../services/api";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { TypeBadge, DifficultyBadge } from "../components/StatusBadge";
 import { DocumentQuestionExtractor } from "../components/DocumentQuestionExtractor";
+import { translateContent } from "../services/translator";
 
 export const CreateExam = ({ setCurrentView }) => {
   const { showToast } = useToast();
   const { user } = useAuth();
+  const { language, t } = useLanguage();
 
   // Basic Exam State
   const [title, setTitle] = useState("");
@@ -370,7 +373,7 @@ export const CreateExam = ({ setCurrentView }) => {
             className="btn btn-secondary btn-sm"
             style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.75rem" }}
           >
-            <ArrowLeft size={15} /> Back to Examiner Dashboard
+            <ArrowLeft size={15} /> {t("create_exam.back_dashboard", "Back to Examiner Dashboard")}
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <div style={{
@@ -388,10 +391,10 @@ export const CreateExam = ({ setCurrentView }) => {
             </div>
             <div>
               <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-main)", margin: 0 }}>
-                Create Examination Blueprint
+                {t("create_exam.title", "Create Examination Blueprint")}
               </h1>
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", margin: 0 }}>
-                Configure exam specifications, proctoring safeguards, and assemble questions via random generation or document import
+                {t("create_exam.sub", "Configure exam specifications, proctoring safeguards, and assemble questions via random generation or document import")}
               </p>
             </div>
           </div>
@@ -404,7 +407,7 @@ export const CreateExam = ({ setCurrentView }) => {
             disabled={submitting}
             className="btn btn-secondary"
           >
-            Save as Draft
+            {t("create_exam.save_draft", "Save as Draft")}
           </button>
           <button
             onClick={() => handleSaveExam("PUBLISHED")}
@@ -413,7 +416,7 @@ export const CreateExam = ({ setCurrentView }) => {
             style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
           >
             <CheckCircle2 size={16} />
-            {submitting ? "Publishing..." : "Create & Publish Exam"}
+            {submitting ? t("create_exam.publishing", "Publishing...") : t("create_exam.save_exam_btn", "Create & Publish Exam")}
           </button>
         </div>
       </div>
@@ -427,16 +430,16 @@ export const CreateExam = ({ setCurrentView }) => {
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem" }}>
               <FileText size={18} color="#818cf8" />
               <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>
-                1. Examination Specifications
+                {t("create_exam.sec_specs", "1. Examination Specifications")}
               </h3>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Examination Title *</label>
+              <label className="form-label">{t("create_exam.exam_title_label", "Examination Title *")}</label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Data Structures & Algorithms Comprehensive Midterm 2026"
+                placeholder={t("create_exam.exam_title_placeholder", "e.g. Data Structures & Algorithms Comprehensive Midterm 2026")}
                 className="form-control"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -446,13 +449,13 @@ export const CreateExam = ({ setCurrentView }) => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.35rem" }}>
-                  <label className="form-label" style={{ margin: 0 }}>Subject / Discipline *</label>
+                  <label className="form-label" style={{ margin: 0 }}>{t("create_exam.subject_label", "Subject / Discipline *")}</label>
                   <button
                     type="button"
                     onClick={() => setIsCustomSubject(!isCustomSubject)}
                     style={{ background: "transparent", border: "none", color: "#818cf8", fontSize: "0.75rem", cursor: "pointer", textDecoration: "underline" }}
                   >
-                    {isCustomSubject ? "Pick Standard" : "Custom Name"}
+                    {isCustomSubject ? t("create_exam.pick_standard", "Pick Standard") : t("create_exam.custom_name", "Custom Name")}
                   </button>
                 </div>
                 {isCustomSubject ? (
@@ -477,7 +480,7 @@ export const CreateExam = ({ setCurrentView }) => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Duration (Minutes) *</label>
+                <label className="form-label">{t("create_exam.duration_label", "Duration (Minutes) *")}</label>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <input
                     type="number"
@@ -514,23 +517,23 @@ export const CreateExam = ({ setCurrentView }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Initial Status</label>
+              <label className="form-label">{t("create_exam.status_label", "Initial Status")}</label>
               <select
                 className="form-control"
                 value={examStatus}
                 onChange={(e) => setExamStatus(e.target.value)}
               >
-                <option value="PUBLISHED">PUBLISHED (Active & Available to Students in Portal)</option>
-                <option value="DRAFT">DRAFT (Saved as Draft Blueprint)</option>
+                <option value="PUBLISHED">{t("create_exam.status_published_desc", "PUBLISHED (Active & Available to Students in Portal)")}</option>
+                <option value="DRAFT">{t("create_exam.status_draft_desc", "DRAFT (Saved as Draft Blueprint)")}</option>
               </select>
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Exam Instructions / Overview</label>
+              <label className="form-label">{t("create_exam.desc_label", "Exam Instructions / Overview")}</label>
               <textarea
                 rows={3}
                 className="form-control"
-                placeholder="Candidate instructions, permissible resources, and grading breakdown..."
+                placeholder={t("create_exam.desc_placeholder", "Candidate instructions, permissible resources, and grading breakdown...")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 style={{ resize: "vertical" }}
@@ -543,18 +546,18 @@ export const CreateExam = ({ setCurrentView }) => {
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
               <ShieldCheck size={18} color="#34d399" />
               <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>
-                2. AI Proctoring & Telemetry
+                {t("create_exam.sec_proctoring", "2. AI Proctoring & Telemetry")}
               </h3>
             </div>
 
             <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", marginBottom: "1.25rem" }}>
-              Automated computer vision safeguards enforce candidate evaluation integrity during live examination sessions.
+              {t("create_exam.proctoring_desc", "Automated computer vision safeguards enforce candidate evaluation integrity during live examination sessions.")}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
               <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                 <span style={{ fontSize: "0.875rem", color: "var(--text-main)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <Video size={16} color="#818cf8" /> WebCam & Facial Telemetry
+                  <Video size={16} color="#818cf8" /> {t("create_exam.enable_webcam", "WebCam & Facial Telemetry")}
                 </span>
                 <input
                   type="checkbox"
@@ -566,7 +569,7 @@ export const CreateExam = ({ setCurrentView }) => {
 
               <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                 <span style={{ fontSize: "0.875rem", color: "var(--text-main)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <Eye size={16} color="#c084fc" /> Gaze & Head Orientation Tracking
+                  <Eye size={16} color="#c084fc" /> {t("create_exam.enable_gaze", "Gaze & Head Orientation Tracking")}
                 </span>
                 <input
                   type="checkbox"
@@ -578,7 +581,7 @@ export const CreateExam = ({ setCurrentView }) => {
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "0.5rem", borderTop: "1px solid var(--border-color)" }}>
                 <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                  Max Tab-Switch Warnings:
+                  {t("create_exam.max_warnings_label", "Max Tab-Switch Warnings:")}
                 </span>
                 <select
                   value={maxTabWarnings}
@@ -611,7 +614,7 @@ export const CreateExam = ({ setCurrentView }) => {
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <Dices size={20} color="#fbbf24" />
                 <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700 }}>
-                  Question Assembly Studio
+                  {t("create_exam.assembly_studio", "Question Assembly Studio")}
                 </h3>
               </div>
 
@@ -641,7 +644,7 @@ export const CreateExam = ({ setCurrentView }) => {
                     gap: "0.35rem"
                   }}
                 >
-                  <Dices size={14} /> Random Generator
+                  <Dices size={14} /> {t("create_exam.tab_random", "Random Generator")}
                 </button>
                 <button
                   type="button"
@@ -660,7 +663,7 @@ export const CreateExam = ({ setCurrentView }) => {
                     gap: "0.35rem"
                   }}
                 >
-                  <BookOpen size={14} /> Manual Picker
+                  <BookOpen size={14} /> {t("create_exam.tab_manual", "Manual Picker")}
                 </button>
                 <button
                   type="button"
@@ -679,7 +682,7 @@ export const CreateExam = ({ setCurrentView }) => {
                     gap: "0.35rem"
                   }}
                 >
-                  <FileSpreadsheet size={14} /> Document Extractor
+                  <FileSpreadsheet size={14} /> {t("create_exam.tab_extractor", "Document Extractor")}
                 </button>
               </div>
             </div>
@@ -694,13 +697,13 @@ export const CreateExam = ({ setCurrentView }) => {
                 marginBottom: "1rem"
               }}>
                 <div style={{ fontSize: "0.8rem", color: "#c084fc", fontWeight: 700, textTransform: "uppercase", marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                  <Sparkles size={14} /> Random Selection Parameters
+                  <Sparkles size={14} /> {t("create_exam.random_params_title", "Random Selection Parameters")}
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "0.75rem" }}>
                   <div>
                     <label style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.25rem" }}>
-                      Subject Pool
+                      {t("create_exam.random_subject_label", "Subject Pool")}
                     </label>
                     <select
                       className="form-control"
@@ -708,7 +711,7 @@ export const CreateExam = ({ setCurrentView }) => {
                       value={randomSubject}
                       onChange={(e) => setRandomSubject(e.target.value)}
                     >
-                      <option value="ALL">All Subjects (Universal Pool)</option>
+                      <option value="ALL">{t("create_exam.all_subjects_universal", "All Subjects (Universal Pool)")}</option>
                       {availableSubjects.map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
@@ -717,7 +720,7 @@ export const CreateExam = ({ setCurrentView }) => {
 
                   <div>
                     <label style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.25rem" }}>
-                      Difficulty Filter
+                      {t("create_exam.random_diff_label", "Difficulty Filter")}
                     </label>
                     <select
                       className="form-control"
@@ -725,10 +728,10 @@ export const CreateExam = ({ setCurrentView }) => {
                       value={randomDifficulty}
                       onChange={(e) => setRandomDifficulty(e.target.value)}
                     >
-                      <option value="ALL">All Difficulties (Balanced)</option>
-                      <option value="EASY">Easy</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HARD">Hard</option>
+                      <option value="ALL">{t("create_exam.all_difficulties_balanced", "All Difficulties (Balanced)")}</option>
+                      <option value="EASY">{t("status.easy", "Easy")}</option>
+                      <option value="MEDIUM">{t("status.medium", "Medium")}</option>
+                      <option value="HARD">{t("status.hard", "Hard")}</option>
                     </select>
                   </div>
                 </div>
@@ -736,7 +739,7 @@ export const CreateExam = ({ setCurrentView }) => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
                   <div>
                     <label style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.25rem" }}>
-                      Question Format
+                      {t("create_exam.random_type_label", "Question Format")}
                     </label>
                     <select
                       className="form-control"
@@ -744,22 +747,22 @@ export const CreateExam = ({ setCurrentView }) => {
                       value={randomType}
                       onChange={(e) => setRandomType(e.target.value)}
                     >
-                      <option value="ALL">All 5 Types (Multi-Modal)</option>
-                      <option value="MCQ">Single MCQ Only</option>
-                      <option value="MULTI_SELECT">Multi-Select Only</option>
-                      <option value="SHORT_ANSWER">Short Answer Only</option>
-                      <option value="LONG_ANSWER">Long Essay Only</option>
-                      <option value="IMAGE_UPLOAD">Diagram Upload Only</option>
+                      <option value="ALL">{t("create_exam.all_types_multimodal", "All 5 Types (Multi-Modal)")}</option>
+                      <option value="MCQ">{t("status.mcq_single", "Single MCQ Only")}</option>
+                      <option value="MULTI_SELECT">{t("status.multi_select", "Multi-Select Only")}</option>
+                      <option value="SHORT_ANSWER">{t("status.short_answer", "Short Answer Only")}</option>
+                      <option value="LONG_ANSWER">{t("status.long_answer", "Long Essay Only")}</option>
+                      <option value="IMAGE_UPLOAD">{t("status.image_upload", "Diagram Upload Only")}</option>
                     </select>
                   </div>
 
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
                       <label style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
-                        Number of Questions
+                        {t("create_exam.random_count_label", "Number of Questions")}
                       </label>
                       <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#fbbf24" }}>
-                        {randomCount} Items
+                        {randomCount} {t("create_exam.items", "Items")}
                       </span>
                     </div>
                     <input
@@ -791,7 +794,7 @@ export const CreateExam = ({ setCurrentView }) => {
                   }}
                 >
                   <Dices size={18} className={isGeneratingRandom ? "spin-animation" : ""} />
-                  {isGeneratingRandom ? "Synthesizing Random Question Set..." : "🎲 Generate Random Questions for Exam"}
+                  {isGeneratingRandom ? t("create_exam.generating_random", "Synthesizing Random Question Set...") : t("create_exam.generate_random_btn", "🎲 Generate Random Questions for Exam")}
                 </button>
               </div>
             )}
@@ -808,7 +811,7 @@ export const CreateExam = ({ setCurrentView }) => {
                 <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
                   <input
                     type="text"
-                    placeholder="Search questions..."
+                    placeholder={t("create_exam.search_questions_ph", "Search questions...")}
                     className="form-control"
                     style={{ fontSize: "0.85rem" }}
                     value={bankSearch}
@@ -820,7 +823,7 @@ export const CreateExam = ({ setCurrentView }) => {
                     value={bankSubjectFilter}
                     onChange={(e) => setBankSubjectFilter(e.target.value)}
                   >
-                    <option value="ALL">All Subjects</option>
+                    <option value="ALL">{t("question_bank.all_subjects", "All Subjects")}</option>
                     {availableSubjects.map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
@@ -831,23 +834,23 @@ export const CreateExam = ({ setCurrentView }) => {
                     value={bankTypeFilter}
                     onChange={(e) => setBankTypeFilter(e.target.value)}
                   >
-                    <option value="ALL">All Types</option>
-                    <option value="MCQ">MCQ</option>
-                    <option value="MULTI_SELECT">Multi</option>
-                    <option value="SHORT_ANSWER">Short</option>
-                    <option value="LONG_ANSWER">Long</option>
-                    <option value="IMAGE_UPLOAD">Upload</option>
+                    <option value="ALL">{t("question_bank.all_types", "All Types")}</option>
+                    <option value="MCQ">{t("status.mcq_single", "MCQ")}</option>
+                    <option value="MULTI_SELECT">{t("status.multi_select", "Multi")}</option>
+                    <option value="SHORT_ANSWER">{t("status.short_answer", "Short")}</option>
+                    <option value="LONG_ANSWER">{t("status.long_answer", "Long")}</option>
+                    <option value="IMAGE_UPLOAD">{t("status.image_upload", "Upload")}</option>
                   </select>
                 </div>
 
                 <div style={{ maxHeight: "240px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   {loadingBank ? (
                     <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                      Loading question bank...
+                      {t("create_exam.loading_bank", "Loading question bank...")}
                     </div>
                   ) : bankQuestions.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                      No questions found. Try changing filters or adding questions to the bank.
+                      {t("create_exam.empty_bank", "No questions found. Try changing filters or adding questions to the bank.")}
                     </div>
                   ) : (
                     bankQuestions.map(q => {
@@ -868,13 +871,13 @@ export const CreateExam = ({ setCurrentView }) => {
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: "0.85rem", color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {q.question_text}
+                              {translateContent(q.question_text, language)}
                             </div>
                             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.725rem", color: "var(--text-muted)" }}>
                               <TypeBadge type={q.question_type} />
-                              <span style={{ color: "#a5b4fc" }}>{q.subject}</span>
+                              <span style={{ color: "#a5b4fc" }}>{translateContent(q.subject, language)}</span>
                               <span>&bull;</span>
-                              <span style={{ color: "#34d399", fontWeight: 700 }}>{q.marks} Marks</span>
+                              <span style={{ color: "#34d399", fontWeight: 700 }}>{q.marks} {t("common.marks", "Marks")}</span>
                             </div>
                           </div>
                           <button
@@ -883,7 +886,7 @@ export const CreateExam = ({ setCurrentView }) => {
                             className={`btn btn-sm ${isAdded ? "btn-secondary" : "btn-primary"}`}
                             style={{ fontSize: "0.75rem", padding: "0.25rem 0.65rem", flexShrink: 0 }}
                           >
-                            {isAdded ? "Remove" : "+ Add"}
+                            {isAdded ? t("common.remove", "Remove") : t("create_exam.add_question", "+ Add")}
                           </button>
                         </div>
                       );
@@ -919,28 +922,28 @@ export const CreateExam = ({ setCurrentView }) => {
             }}>
               <div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>
-                  Selected Questions
+                  {t("create_exam.selected_questions_label", "Selected Questions")}
                 </div>
                 <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)" }}>
-                  {selectedQuestions.length} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--text-muted)" }}>Items</span>
+                  {selectedQuestions.length} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--text-muted)" }}>{t("create_exam.items", "Items")}</span>
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>
-                  Calculated Total Marks
+                  {t("create_exam.calc_total_marks", "Calculated Total Marks")}
                 </div>
                 <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#34d399" }}>
-                  {totalMarks} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--text-muted)" }}>Marks</span>
+                  {totalMarks} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--text-muted)" }}>{t("common.marks", "Marks")}</span>
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>
-                  Passing Threshold (40%)
+                  {t("create_exam.passing_threshold", "Passing Threshold (40%)")}
                 </div>
                 <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#60a5fa" }}>
-                  {passingMarks} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--text-muted)" }}>Marks</span>
+                  {passingMarks} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--text-muted)" }}>{t("common.marks", "Marks")}</span>
                 </div>
               </div>
             </div>
@@ -949,7 +952,7 @@ export const CreateExam = ({ setCurrentView }) => {
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-main)" }}>
-                  Exam Paper Composition ({selectedQuestions.length} Questions)
+                  {t("create_exam.paper_composition", "Exam Paper Composition ({count} Questions)", { count: selectedQuestions.length })}
                 </span>
                 {selectedQuestions.length > 0 && (
                   <button
@@ -957,7 +960,7 @@ export const CreateExam = ({ setCurrentView }) => {
                     onClick={() => setSelectedQuestions([])}
                     style={{ background: "transparent", border: "none", color: "#fda4af", fontSize: "0.75rem", cursor: "pointer" }}
                   >
-                    Clear All
+                    {t("create_exam.clear_all", "Clear All")}
                   </button>
                 )}
               </div>
@@ -972,10 +975,10 @@ export const CreateExam = ({ setCurrentView }) => {
                 }}>
                   <Dices size={32} color="#fbbf24" style={{ margin: "0 auto 0.75rem" }} />
                   <div style={{ fontWeight: 600, color: "var(--text-main)", marginBottom: "0.3rem" }}>
-                    No Questions in Blueprint Yet
+                    {t("create_exam.no_questions_title", "No Questions in Blueprint Yet")}
                   </div>
                   <p style={{ fontSize: "0.825rem", maxWidth: "340px", margin: "0 auto" }}>
-                    Click <strong>"Generate Random Questions"</strong> above, pick manually, or import from Word/Excel/PDF.
+                    {t("create_exam.no_questions_desc", "Click \"Generate Random Questions\" above, pick manually, or import from Word/Excel/PDF.")}
                   </p>
                 </div>
               ) : (
@@ -1015,7 +1018,7 @@ export const CreateExam = ({ setCurrentView }) => {
                       {/* Right controls: Marks Input, Re-roll button, and Delete button */}
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                          <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>Marks:</span>
+                          <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>{t("common.marks", "Marks")}:</span>
                           <input
                             type="number"
                             min={0.5}
@@ -1040,7 +1043,7 @@ export const CreateExam = ({ setCurrentView }) => {
                         <button
                           type="button"
                           onClick={() => handleRerollSingle(index)}
-                          title="Re-roll this question with another random question from pool"
+                          title={t("create_exam.reroll_tooltip", "Re-roll this question with another random question from pool")}
                           style={{
                             background: "rgba(168, 85, 247, 0.15)",
                             border: "1px solid rgba(168, 85, 247, 0.3)",
@@ -1059,7 +1062,7 @@ export const CreateExam = ({ setCurrentView }) => {
                         <button
                           type="button"
                           onClick={() => handleRemoveQuestion(index)}
-                          title="Remove from exam"
+                          title={t("create_exam.remove_tooltip", "Remove from exam")}
                           style={{
                             background: "rgba(244, 63, 94, 0.15)",
                             border: "1px solid rgba(244, 63, 94, 0.3)",

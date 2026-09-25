@@ -3,10 +3,12 @@ import { GraduationCap, Mail, Hash, BookOpen, Calendar, Lock, CheckCircle2, Cloc
 import confetti from "canvas-confetti";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export const StudentRegister = ({ setCurrentView }) => {
   const { register } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [selectedRole, setSelectedRole] = useState("STUDENT"); // STUDENT or EXAMINER
 
@@ -58,12 +60,12 @@ export const StudentRegister = ({ setCurrentView }) => {
     setErrorMsg("");
 
     if (formData.password !== formData.confirm_password) {
-      setErrorMsg("Password and Confirm Password do not match.");
+      setErrorMsg(t("register.pwd_mismatch", null, "Password and Confirm Password do not match."));
       return;
     }
 
     if (formData.password.length < 6) {
-      setErrorMsg("Password must be at least 6 characters long.");
+      setErrorMsg(t("register.pwd_too_short", null, "Password must be at least 6 characters long."));
       return;
     }
 
@@ -135,10 +137,10 @@ export const StudentRegister = ({ setCurrentView }) => {
               {selectedRole === "STUDENT" ? <GraduationCap size={34} /> : <ShieldCheck size={34} />}
             </div>
             <h1 style={{ fontSize: "2.2rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.025em", marginBottom: "0.5rem" }}>
-              User Registration Portal
+              {t("register.title", null, "User Registration Portal")}
             </h1>
             <p style={{ fontSize: "0.95rem", color: "var(--text-muted)", lineHeight: 1.55 }}>
-              Create your candidate or examiner profile for the AI Examination Platform
+              {t("register.sub", null, "Create your candidate or examiner profile for the AI Examination Platform")}
             </p>
           </div>
 
@@ -174,7 +176,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               }}
             >
               <GraduationCap size={20} />
-              Student Candidate
+              {t("register.student_candidate_tab", null, "Student Candidate")}
             </button>
             <button
               type="button"
@@ -197,7 +199,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               }}
             >
               <ShieldCheck size={20} />
-              Faculty Examiner
+              {t("register.faculty_examiner_tab", null, "Faculty Examiner")}
             </button>
           </div>
 
@@ -222,7 +224,9 @@ export const StudentRegister = ({ setCurrentView }) => {
             {/* Full Name */}
             <div className="form-group" style={{ marginBottom: "1.75rem" }}>
               <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-                {selectedRole === "EXAMINER" ? "Faculty Full Name *" : "Student Full Name *"}
+                {selectedRole === "EXAMINER" 
+                  ? t("register.full_name_faculty", null, "Faculty Full Name *") 
+                  : t("register.full_name_student", null, "Student Full Name *")}
               </label>
               <input
                 type="text"
@@ -240,7 +244,7 @@ export const StudentRegister = ({ setCurrentView }) => {
             <div style={{ display: "grid", gridTemplateColumns: selectedRole === "STUDENT" ? "1fr 1fr" : "1fr", gap: "1.5rem", marginBottom: "1.75rem" }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-                  Institutional Email *
+                  {t("register.inst_email", null, "Institutional Email *")}
                 </label>
                 <input
                   type="email"
@@ -256,7 +260,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               {selectedRole === "STUDENT" && (
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-                    Register Number / Student ID *
+                    {t("register.reg_number", null, "Register Number / Student ID *")}
                   </label>
                   <input
                     type="text"
@@ -276,7 +280,7 @@ export const StudentRegister = ({ setCurrentView }) => {
             <div style={{ display: "grid", gridTemplateColumns: selectedRole === "STUDENT" ? "1fr 1fr" : "1fr", gap: "1.5rem", marginBottom: "1.75rem" }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-                  Academic Department *
+                  {t("register.academic_dept", null, "Academic Department *")}
                 </label>
                 <select
                   name="department"
@@ -295,7 +299,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               {selectedRole === "STUDENT" && (
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-                    Academic Year *
+                    {t("register.academic_year_label", null, "Academic Year *")}
                   </label>
                   <select
                     name="year"
@@ -318,7 +322,7 @@ export const StudentRegister = ({ setCurrentView }) => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-                  Password *
+                  {t("register.pwd_label", null, "Password *")}
                 </label>
                 <input
                   type="password"
@@ -334,7 +338,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-                  Confirm Password *
+                  {t("register.confirm_pwd_label", null, "Confirm Password *")}
                 </label>
                 <input
                   type="password"
@@ -369,7 +373,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               >
                 <Clock size={22} style={{ flexShrink: 0 }} />
                 <div>
-                  <strong>Examiner Workflow:</strong> Your examiner account will be submitted with <strong>PENDING</strong> status and requires Administrator approval before question authoring and exam management are unlocked.
+                  {t("register.examiner_workflow_notice", null, "Examiner Workflow: Your examiner account will be submitted with PENDING status and requires Administrator approval before question authoring and exam management are unlocked.")}
                 </div>
               </div>
             ) : (
@@ -390,7 +394,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               >
                 <CheckCircle2 size={22} style={{ flexShrink: 0 }} />
                 <div>
-                  <strong>Student Workflow:</strong> Student candidate registrations are activated immediately upon submission.
+                  {t("register.student_workflow_notice", null, "Student Workflow: Student candidate registrations are activated immediately upon submission.")}
                 </div>
               </div>
             )}
@@ -402,22 +406,22 @@ export const StudentRegister = ({ setCurrentView }) => {
               style={{ width: "100%", padding: "1rem 2rem", fontSize: "1.05rem" }}
             >
               {loading 
-                ? "Submitting Registration..." 
+                ? t("register.submitting", null, "Submitting Registration...") 
                 : selectedRole === "EXAMINER" 
-                  ? "Submit Examiner Application" 
-                  : "Register Student Account"
+                  ? t("register.submit_examiner", null, "Submit Examiner Application") 
+                  : t("register.submit_student", null, "Register Student Account")
               }
             </button>
           </form>
 
           {/* Footer link */}
           <div style={{ textAlign: "center", marginTop: "2.25rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border-color)", fontSize: "0.95rem", color: "var(--text-muted)" }}>
-            Already registered?{" "}
+            {t("register.already_registered", null, "Already registered?")}{" "}
             <button
               onClick={() => setCurrentView(selectedRole === "EXAMINER" ? "admin_login" : "student_login")}
               style={{ background: "transparent", border: "none", color: "var(--primary-light)", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: "0.95rem" }}
             >
-              Sign In Here
+              {t("register.sign_in_here", null, "Sign In Here")}
             </button>
           </div>
         </div>
@@ -446,11 +450,13 @@ export const StudentRegister = ({ setCurrentView }) => {
             className={`badge ${registeredInfo?.status === "PENDING" ? "badge-pending" : "badge-approved"}`}
             style={{ fontSize: "0.85rem", padding: "0.4rem 1rem", marginBottom: "1.25rem" }}
           >
-            Account Status: {registeredInfo?.status}
+            {t("register.account_status", { status: registeredInfo?.status }, `Account Status: ${registeredInfo?.status}`)}
           </span>
 
           <h2 style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-main)", marginBottom: "1.25rem", marginTop: "0.75rem", letterSpacing: "-0.02em" }}>
-            {registeredInfo?.status === "PENDING" ? "Registration Awaiting Approval" : "Registration Successful!"}
+            {registeredInfo?.status === "PENDING" 
+              ? t("register.reg_awaiting_approval", null, "Registration Awaiting Approval") 
+              : t("register.reg_successful", null, "Registration Successful!")}
           </h2>
 
           <div
@@ -471,18 +477,18 @@ export const StudentRegister = ({ setCurrentView }) => {
 
           <div className="glass-card" style={{ padding: "1.75rem", textAlign: "left", marginBottom: "2.5rem", background: "rgba(30, 41, 59, 0.45)" }}>
             <div style={{ fontSize: "0.85rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700, marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
-              Registered Profile Details:
+              {t("register.registered_details", null, "Registered Profile Details:")}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.6rem", fontSize: "0.95rem" }}>
-              <span style={{ color: "var(--text-muted)" }}>Name:</span>
+              <span style={{ color: "var(--text-muted)" }}>{t("common.name", null, "Name")}:</span>
               <span style={{ fontWeight: 600, color: "var(--text-main)" }}>{registeredInfo?.name}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.6rem", fontSize: "0.95rem" }}>
-              <span style={{ color: "var(--text-muted)" }}>Role:</span>
+              <span style={{ color: "var(--text-muted)" }}>{t("common.role", null, "Role")}:</span>
               <span style={{ fontWeight: 700, color: "var(--primary-light)" }}>{registeredInfo?.role}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
-              <span style={{ color: "var(--text-muted)" }}>Email:</span>
+              <span style={{ color: "var(--text-muted)" }}>{t("common.email", null, "Email")}:</span>
               <span style={{ color: "var(--text-main)" }}>{registeredInfo?.email}</span>
             </div>
           </div>
@@ -492,7 +498,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               onClick={() => setCurrentView(registeredInfo?.role === "EXAMINER" ? "admin_login" : "student_login")}
               className="btn btn-primary btn-lg"
             >
-              Go to Sign In
+              {t("register.go_to_signin", null, "Go to Sign In")}
             </button>
             <button
               onClick={() => {
@@ -509,7 +515,7 @@ export const StudentRegister = ({ setCurrentView }) => {
               }}
               className="btn btn-secondary btn-lg"
             >
-              Register Another Account
+              {t("register.register_another", null, "Register Another Account")}
             </button>
           </div>
         </div>

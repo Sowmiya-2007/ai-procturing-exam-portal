@@ -111,6 +111,12 @@ class AdminStatsResponse(BaseModel):
 class QuestionOptionBase(BaseModel):
     option_text: str
     is_correct: bool = False
+    option_text_en: Optional[str] = None
+    option_text_ta: Optional[str] = None
+    option_text_te: Optional[str] = None
+    option_text_hi: Optional[str] = None
+    option_text_ml: Optional[str] = None
+    option_text_kn: Optional[str] = None
 
 class QuestionOptionCreate(QuestionOptionBase):
     pass
@@ -132,6 +138,29 @@ class QuestionCreate(BaseModel):
     expected_answer: Optional[str] = None
     model_answer: Optional[str] = None
     evaluation_guidelines: Optional[str] = None
+    
+    # Multilingual inputs
+    question_text_en: Optional[str] = None
+    question_text_ta: Optional[str] = None
+    question_text_te: Optional[str] = None
+    question_text_hi: Optional[str] = None
+    question_text_ml: Optional[str] = None
+    question_text_kn: Optional[str] = None
+
+    explanation_en: Optional[str] = None
+    explanation_ta: Optional[str] = None
+    explanation_te: Optional[str] = None
+    explanation_hi: Optional[str] = None
+    explanation_ml: Optional[str] = None
+    explanation_kn: Optional[str] = None
+
+    model_answer_en: Optional[str] = None
+    model_answer_ta: Optional[str] = None
+    model_answer_te: Optional[str] = None
+    model_answer_hi: Optional[str] = None
+    model_answer_ml: Optional[str] = None
+    model_answer_kn: Optional[str] = None
+
     options: Optional[List[QuestionOptionCreate]] = Field(default_factory=list)
     replace_question_id: Optional[int] = Field(None, description="If replacing an existing duplicate question")
     skip: Optional[bool] = Field(False, description="Whether to skip this item during batch import")
@@ -147,6 +176,29 @@ class QuestionUpdate(BaseModel):
     expected_answer: Optional[str] = None
     model_answer: Optional[str] = None
     evaluation_guidelines: Optional[str] = None
+
+    # Multilingual updates
+    question_text_en: Optional[str] = None
+    question_text_ta: Optional[str] = None
+    question_text_te: Optional[str] = None
+    question_text_hi: Optional[str] = None
+    question_text_ml: Optional[str] = None
+    question_text_kn: Optional[str] = None
+
+    explanation_en: Optional[str] = None
+    explanation_ta: Optional[str] = None
+    explanation_te: Optional[str] = None
+    explanation_hi: Optional[str] = None
+    explanation_ml: Optional[str] = None
+    explanation_kn: Optional[str] = None
+
+    model_answer_en: Optional[str] = None
+    model_answer_ta: Optional[str] = None
+    model_answer_te: Optional[str] = None
+    model_answer_hi: Optional[str] = None
+    model_answer_ml: Optional[str] = None
+    model_answer_kn: Optional[str] = None
+
     options: Optional[List[QuestionOptionCreate]] = None
 
 class QuestionResponse(BaseModel):
@@ -161,6 +213,29 @@ class QuestionResponse(BaseModel):
     expected_answer: Optional[str] = None
     model_answer: Optional[str] = None
     evaluation_guidelines: Optional[str] = None
+
+    # Multilingual response fields
+    question_text_en: Optional[str] = None
+    question_text_ta: Optional[str] = None
+    question_text_te: Optional[str] = None
+    question_text_hi: Optional[str] = None
+    question_text_ml: Optional[str] = None
+    question_text_kn: Optional[str] = None
+
+    explanation_en: Optional[str] = None
+    explanation_ta: Optional[str] = None
+    explanation_te: Optional[str] = None
+    explanation_hi: Optional[str] = None
+    explanation_ml: Optional[str] = None
+    explanation_kn: Optional[str] = None
+
+    model_answer_en: Optional[str] = None
+    model_answer_ta: Optional[str] = None
+    model_answer_te: Optional[str] = None
+    model_answer_hi: Optional[str] = None
+    model_answer_ml: Optional[str] = None
+    model_answer_kn: Optional[str] = None
+
     created_by: Optional[int] = 0
     creator_name: Optional[str] = None
     created_at: datetime
@@ -293,6 +368,28 @@ class ExamCreate(BaseModel):
     max_tab_switch_warnings: Optional[int] = 3
     questions: Optional[List[ExamQuestionLink]] = Field(default_factory=list)
 
+    # Multilingual fields
+    title_en: Optional[str] = None
+    title_ta: Optional[str] = None
+    title_te: Optional[str] = None
+    title_hi: Optional[str] = None
+    title_ml: Optional[str] = None
+    title_kn: Optional[str] = None
+
+    subject_en: Optional[str] = None
+    subject_ta: Optional[str] = None
+    subject_te: Optional[str] = None
+    subject_hi: Optional[str] = None
+    subject_ml: Optional[str] = None
+    subject_kn: Optional[str] = None
+
+    description_en: Optional[str] = None
+    description_ta: Optional[str] = None
+    description_te: Optional[str] = None
+    description_hi: Optional[str] = None
+    description_ml: Optional[str] = None
+    description_kn: Optional[str] = None
+
 class ExamUpdate(BaseModel):
     title: Optional[str] = None
     subject: Optional[str] = None
@@ -308,6 +405,27 @@ class ExamUpdate(BaseModel):
     webcam_monitoring_enabled: Optional[bool] = None
     gaze_tracking_enabled: Optional[bool] = None
     max_tab_switch_warnings: Optional[int] = None
+
+    title_en: Optional[str] = None
+    title_ta: Optional[str] = None
+    title_te: Optional[str] = None
+    title_hi: Optional[str] = None
+    title_ml: Optional[str] = None
+    title_kn: Optional[str] = None
+
+    subject_en: Optional[str] = None
+    subject_ta: Optional[str] = None
+    subject_te: Optional[str] = None
+    subject_hi: Optional[str] = None
+    subject_ml: Optional[str] = None
+    subject_kn: Optional[str] = None
+
+    description_en: Optional[str] = None
+    description_ta: Optional[str] = None
+    description_te: Optional[str] = None
+    description_hi: Optional[str] = None
+    description_ml: Optional[str] = None
+    description_kn: Optional[str] = None
 
 class ExamResponse(BaseModel):
     id: int
@@ -334,6 +452,28 @@ class ExamResponse(BaseModel):
     in_progress_count: Optional[int] = 0
     exam_questions: Optional[List[ExamQuestionResponse]] = Field(default_factory=list)
 
+    # Multilingual fields
+    title_en: Optional[str] = None
+    title_ta: Optional[str] = None
+    title_te: Optional[str] = None
+    title_hi: Optional[str] = None
+    title_ml: Optional[str] = None
+    title_kn: Optional[str] = None
+
+    subject_en: Optional[str] = None
+    subject_ta: Optional[str] = None
+    subject_te: Optional[str] = None
+    subject_hi: Optional[str] = None
+    subject_ml: Optional[str] = None
+    subject_kn: Optional[str] = None
+
+    description_en: Optional[str] = None
+    description_ta: Optional[str] = None
+    description_te: Optional[str] = None
+    description_hi: Optional[str] = None
+    description_ml: Optional[str] = None
+    description_kn: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 # --- Exam Taking, Session & AI Proctoring Schemas ---
@@ -342,6 +482,13 @@ class QuestionOptionSanitized(BaseModel):
     id: int
     question_id: int
     option_text: str
+
+    option_text_en: Optional[str] = None
+    option_text_ta: Optional[str] = None
+    option_text_te: Optional[str] = None
+    option_text_hi: Optional[str] = None
+    option_text_ml: Optional[str] = None
+    option_text_kn: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -356,6 +503,29 @@ class ExamQuestionSanitized(BaseModel):
     difficulty: DifficultyLevel
     negative_marks: float
     options: List[QuestionOptionSanitized] = Field(default_factory=list)
+
+    question_text_en: Optional[str] = None
+    question_text_ta: Optional[str] = None
+    question_text_te: Optional[str] = None
+    question_text_hi: Optional[str] = None
+    question_text_ml: Optional[str] = None
+    question_text_kn: Optional[str] = None
+
+    explanation_en: Optional[str] = None
+    explanation_ta: Optional[str] = None
+    explanation_te: Optional[str] = None
+    explanation_hi: Optional[str] = None
+    explanation_ml: Optional[str] = None
+    explanation_kn: Optional[str] = None
+
+    model_answer_en: Optional[str] = None
+    model_answer_ta: Optional[str] = None
+    model_answer_te: Optional[str] = None
+    model_answer_hi: Optional[str] = None
+    model_answer_ml: Optional[str] = None
+    model_answer_kn: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class StudentAnswerPayload(BaseModel):
     question_id: int
@@ -381,6 +551,27 @@ class ExamSessionStartResponse(BaseModel):
     questions: List[ExamQuestionSanitized] = Field(default_factory=list)
     existing_answers: Dict[str, Any] = Field(default_factory=dict)
     proctoring_enabled: bool = True
+
+    exam_title_en: Optional[str] = None
+    exam_title_ta: Optional[str] = None
+    exam_title_te: Optional[str] = None
+    exam_title_hi: Optional[str] = None
+    exam_title_ml: Optional[str] = None
+    exam_title_kn: Optional[str] = None
+
+    exam_subject_en: Optional[str] = None
+    exam_subject_ta: Optional[str] = None
+    exam_subject_te: Optional[str] = None
+    exam_subject_hi: Optional[str] = None
+    exam_subject_ml: Optional[str] = None
+    exam_subject_kn: Optional[str] = None
+
+    exam_description_en: Optional[str] = None
+    exam_description_ta: Optional[str] = None
+    exam_description_te: Optional[str] = None
+    exam_description_hi: Optional[str] = None
+    exam_description_ml: Optional[str] = None
+    exam_description_kn: Optional[str] = None
 
 class SaveAnswerRequest(BaseModel):
     question_id: int

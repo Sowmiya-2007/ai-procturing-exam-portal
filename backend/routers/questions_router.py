@@ -95,29 +95,58 @@ def list_questions(
 
     questions = query.order_by(Question.created_at.desc()).all()
 
-    # Format response with creator name
-    result = []
-    for q in questions:
-        q_dict = {
-            "id": q.id,
-            "question_text": q.question_text,
-            "question_type": q.question_type,
-            "subject": q.subject,
-            "topic": q.topic,
-            "difficulty": q.difficulty,
-            "marks": q.max_marks,
-            "negative_marks": q.negative_marks,
-            "expected_answer": q.expected_answer,
-            "model_answer": q.model_answer,
-            "evaluation_guidelines": q.evaluation_guidelines,
-            "created_by": q.created_by or 0,
-            "creator_name": q.creator.name if q.creator else "System",
-            "created_at": q.created_at,
-            "options": q.options
+    def format_question_response(q_obj, creator_name=None):
+        return {
+            "id": q_obj.id,
+            "question_text": q_obj.question_text,
+            "question_type": q_obj.question_type,
+            "subject": q_obj.subject,
+            "topic": q_obj.topic,
+            "difficulty": q_obj.difficulty,
+            "marks": q_obj.max_marks,
+            "negative_marks": q_obj.negative_marks,
+            "expected_answer": q_obj.expected_answer,
+            "model_answer": q_obj.model_answer,
+            "evaluation_guidelines": q_obj.evaluation_guidelines,
+            "question_text_en": q_obj.question_text_en or q_obj.question_text,
+            "question_text_ta": q_obj.question_text_ta,
+            "question_text_te": q_obj.question_text_te,
+            "question_text_hi": q_obj.question_text_hi,
+            "question_text_ml": q_obj.question_text_ml,
+            "question_text_kn": q_obj.question_text_kn,
+            "explanation_en": q_obj.explanation_en,
+            "explanation_ta": q_obj.explanation_ta,
+            "explanation_te": q_obj.explanation_te,
+            "explanation_hi": q_obj.explanation_hi,
+            "explanation_ml": q_obj.explanation_ml,
+            "explanation_kn": q_obj.explanation_kn,
+            "model_answer_en": q_obj.model_answer_en,
+            "model_answer_ta": q_obj.model_answer_ta,
+            "model_answer_te": q_obj.model_answer_te,
+            "model_answer_hi": q_obj.model_answer_hi,
+            "model_answer_ml": q_obj.model_answer_ml,
+            "model_answer_kn": q_obj.model_answer_kn,
+            "created_by": q_obj.created_by or 0,
+            "creator_name": creator_name or (q_obj.creator.name if q_obj.creator else "System"),
+            "created_at": q_obj.created_at,
+            "options": [
+                {
+                    "id": opt.id,
+                    "question_id": opt.question_id,
+                    "option_text": opt.option_text,
+                    "is_correct": opt.is_correct,
+                    "option_text_en": opt.option_text_en or opt.option_text,
+                    "option_text_ta": opt.option_text_ta,
+                    "option_text_te": opt.option_text_te,
+                    "option_text_hi": opt.option_text_hi,
+                    "option_text_ml": opt.option_text_ml,
+                    "option_text_kn": opt.option_text_kn,
+                }
+                for opt in q_obj.options
+            ]
         }
-        result.append(q_dict)
 
-    return result
+    return [format_question_response(q) for q in questions]
 
 @router.get("/{question_id}", response_model=QuestionResponse)
 def get_question(question_id: int, db: Session = Depends(get_db)):
@@ -137,10 +166,42 @@ def get_question(question_id: int, db: Session = Depends(get_db)):
         "expected_answer": q.expected_answer,
         "model_answer": q.model_answer,
         "evaluation_guidelines": q.evaluation_guidelines,
+        "question_text_en": q.question_text_en or q.question_text,
+        "question_text_ta": q.question_text_ta,
+        "question_text_te": q.question_text_te,
+        "question_text_hi": q.question_text_hi,
+        "question_text_ml": q.question_text_ml,
+        "question_text_kn": q.question_text_kn,
+        "explanation_en": q.explanation_en,
+        "explanation_ta": q.explanation_ta,
+        "explanation_te": q.explanation_te,
+        "explanation_hi": q.explanation_hi,
+        "explanation_ml": q.explanation_ml,
+        "explanation_kn": q.explanation_kn,
+        "model_answer_en": q.model_answer_en,
+        "model_answer_ta": q.model_answer_ta,
+        "model_answer_te": q.model_answer_te,
+        "model_answer_hi": q.model_answer_hi,
+        "model_answer_ml": q.model_answer_ml,
+        "model_answer_kn": q.model_answer_kn,
         "created_by": q.created_by or 0,
         "creator_name": q.creator.name if q.creator else "System",
         "created_at": q.created_at,
-        "options": q.options
+        "options": [
+            {
+                "id": opt.id,
+                "question_id": opt.question_id,
+                "option_text": opt.option_text,
+                "is_correct": opt.is_correct,
+                "option_text_en": opt.option_text_en or opt.option_text,
+                "option_text_ta": opt.option_text_ta,
+                "option_text_te": opt.option_text_te,
+                "option_text_hi": opt.option_text_hi,
+                "option_text_ml": opt.option_text_ml,
+                "option_text_kn": opt.option_text_kn,
+            }
+            for opt in q.options
+        ]
     }
 
 @router.post("", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
@@ -179,6 +240,24 @@ def create_question(
         expected_answer=payload.expected_answer.strip() if payload.expected_answer else None,
         model_answer=payload.model_answer.strip() if payload.model_answer else None,
         evaluation_guidelines=payload.evaluation_guidelines.strip() if payload.evaluation_guidelines else None,
+        question_text_en=payload.question_text_en or payload.question_text.strip(),
+        question_text_ta=payload.question_text_ta,
+        question_text_te=payload.question_text_te,
+        question_text_hi=payload.question_text_hi,
+        question_text_ml=payload.question_text_ml,
+        question_text_kn=payload.question_text_kn,
+        explanation_en=payload.explanation_en,
+        explanation_ta=payload.explanation_ta,
+        explanation_te=payload.explanation_te,
+        explanation_hi=payload.explanation_hi,
+        explanation_ml=payload.explanation_ml,
+        explanation_kn=payload.explanation_kn,
+        model_answer_en=payload.model_answer_en or payload.model_answer,
+        model_answer_ta=payload.model_answer_ta,
+        model_answer_te=payload.model_answer_te,
+        model_answer_hi=payload.model_answer_hi,
+        model_answer_ml=payload.model_answer_ml,
+        model_answer_kn=payload.model_answer_kn,
         created_by=current_user.id
     )
     db.add(new_q)
@@ -191,7 +270,13 @@ def create_question(
             new_opt = QuestionOption(
                 question_id=new_q.id,
                 option_text=opt.option_text.strip(),
-                is_correct=opt.is_correct
+                is_correct=opt.is_correct,
+                option_text_en=opt.option_text_en or opt.option_text.strip(),
+                option_text_ta=opt.option_text_ta,
+                option_text_te=opt.option_text_te,
+                option_text_hi=opt.option_text_hi,
+                option_text_ml=opt.option_text_ml,
+                option_text_kn=opt.option_text_kn,
             )
             db.add(new_opt)
         db.commit()
@@ -209,10 +294,42 @@ def create_question(
         "expected_answer": new_q.expected_answer,
         "model_answer": new_q.model_answer,
         "evaluation_guidelines": new_q.evaluation_guidelines,
+        "question_text_en": new_q.question_text_en,
+        "question_text_ta": new_q.question_text_ta,
+        "question_text_te": new_q.question_text_te,
+        "question_text_hi": new_q.question_text_hi,
+        "question_text_ml": new_q.question_text_ml,
+        "question_text_kn": new_q.question_text_kn,
+        "explanation_en": new_q.explanation_en,
+        "explanation_ta": new_q.explanation_ta,
+        "explanation_te": new_q.explanation_te,
+        "explanation_hi": new_q.explanation_hi,
+        "explanation_ml": new_q.explanation_ml,
+        "explanation_kn": new_q.explanation_kn,
+        "model_answer_en": new_q.model_answer_en,
+        "model_answer_ta": new_q.model_answer_ta,
+        "model_answer_te": new_q.model_answer_te,
+        "model_answer_hi": new_q.model_answer_hi,
+        "model_answer_ml": new_q.model_answer_ml,
+        "model_answer_kn": new_q.model_answer_kn,
         "created_by": new_q.created_by,
         "creator_name": current_user.name,
         "created_at": new_q.created_at,
-        "options": new_q.options
+        "options": [
+            {
+                "id": opt.id,
+                "question_id": opt.question_id,
+                "option_text": opt.option_text,
+                "is_correct": opt.is_correct,
+                "option_text_en": opt.option_text_en or opt.option_text,
+                "option_text_ta": opt.option_text_ta,
+                "option_text_te": opt.option_text_te,
+                "option_text_hi": opt.option_text_hi,
+                "option_text_ml": opt.option_text_ml,
+                "option_text_kn": opt.option_text_kn,
+            }
+            for opt in new_q.options
+        ]
     }
 
 @router.put("/{question_id}", response_model=QuestionResponse)
@@ -250,6 +367,18 @@ def update_question(
     if payload.evaluation_guidelines is not None:
         q.evaluation_guidelines = payload.evaluation_guidelines.strip() if payload.evaluation_guidelines else None
 
+    # Multilingual updates
+    for lang in ["en", "ta", "te", "hi", "ml", "kn"]:
+        val = getattr(payload, f"question_text_{lang}", None)
+        if val is not None:
+            setattr(q, f"question_text_{lang}", val)
+        exp_val = getattr(payload, f"explanation_{lang}", None)
+        if exp_val is not None:
+            setattr(q, f"explanation_{lang}", exp_val)
+        model_val = getattr(payload, f"model_answer_{lang}", None)
+        if model_val is not None:
+            setattr(q, f"model_answer_{lang}", model_val)
+
     # Handle options update if provided
     if payload.options is not None:
         db.query(QuestionOption).filter(QuestionOption.question_id == q.id).delete()
@@ -257,7 +386,13 @@ def update_question(
             new_opt = QuestionOption(
                 question_id=q.id,
                 option_text=opt.option_text.strip(),
-                is_correct=opt.is_correct
+                is_correct=opt.is_correct,
+                option_text_en=opt.option_text_en or opt.option_text.strip(),
+                option_text_ta=opt.option_text_ta,
+                option_text_te=opt.option_text_te,
+                option_text_hi=opt.option_text_hi,
+                option_text_ml=opt.option_text_ml,
+                option_text_kn=opt.option_text_kn,
             )
             db.add(new_opt)
 
@@ -276,10 +411,42 @@ def update_question(
         "expected_answer": q.expected_answer,
         "model_answer": q.model_answer,
         "evaluation_guidelines": q.evaluation_guidelines,
+        "question_text_en": q.question_text_en,
+        "question_text_ta": q.question_text_ta,
+        "question_text_te": q.question_text_te,
+        "question_text_hi": q.question_text_hi,
+        "question_text_ml": q.question_text_ml,
+        "question_text_kn": q.question_text_kn,
+        "explanation_en": q.explanation_en,
+        "explanation_ta": q.explanation_ta,
+        "explanation_te": q.explanation_te,
+        "explanation_hi": q.explanation_hi,
+        "explanation_ml": q.explanation_ml,
+        "explanation_kn": q.explanation_kn,
+        "model_answer_en": q.model_answer_en,
+        "model_answer_ta": q.model_answer_ta,
+        "model_answer_te": q.model_answer_te,
+        "model_answer_hi": q.model_answer_hi,
+        "model_answer_ml": q.model_answer_ml,
+        "model_answer_kn": q.model_answer_kn,
         "created_by": q.created_by,
         "creator_name": q.creator.name if q.creator else current_user.name,
         "created_at": q.created_at,
-        "options": q.options
+        "options": [
+            {
+                "id": opt.id,
+                "question_id": opt.question_id,
+                "option_text": opt.option_text,
+                "is_correct": opt.is_correct,
+                "option_text_en": opt.option_text_en or opt.option_text,
+                "option_text_ta": opt.option_text_ta,
+                "option_text_te": opt.option_text_te,
+                "option_text_hi": opt.option_text_hi,
+                "option_text_ml": opt.option_text_ml,
+                "option_text_kn": opt.option_text_kn,
+            }
+            for opt in q.options
+        ]
     }
 
 @router.delete("/{question_id}")

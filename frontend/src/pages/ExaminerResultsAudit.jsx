@@ -29,10 +29,13 @@ import { api } from "../services/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
+import { translateContent, getLocalizedOptionLabel } from "../services/translator";
 
 export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken = null, onBack }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { language, t } = useLanguage();
 
   const [exams, setExams] = useState([]);
   const [selectedExamId, setSelectedExamId] = useState(initialExamId ? String(initialExamId) : "ALL");
@@ -238,14 +241,14 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
         <div>
           {onBack && (
             <button onClick={onBack} className="btn btn-secondary" style={{ marginBottom: "0.6rem", padding: "0.35rem 0.75rem", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-              <ArrowLeft size={15} /> Back to Dashboard
+              <ArrowLeft size={15} /> {t("examiner.back_dashboard", "Back to Dashboard")}
             </button>
           )}
           <h1 style={{ fontSize: "1.85rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.02em" }}>
-            Candidate Exam Results & Proctoring Audit
+            {t("examiner.audit_title", "Candidate Exam Results & Proctoring Audit")}
           </h1>
           <p style={{ fontSize: "0.925rem", color: "var(--text-muted)", marginTop: "0.35rem" }}>
-            Live stream of student exam submissions. Inspect candidate answer sheets, evaluate handwritten diagrams, review AI proctoring telemetry, and release official scorecards.
+            {t("examiner.audit_desc", "Live stream of student exam submissions. Inspect candidate answer sheets, evaluate handwritten diagrams, review AI proctoring telemetry, and release official scorecards.")}
           </p>
         </div>
 
@@ -259,18 +262,18 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
             style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
           >
             <RefreshCw size={14} className={refreshing ? "spin-animation" : ""} />
-            Sync Results
+            {t("examiner.sync_results", "Sync Results")}
           </button>
 
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 700 }}>Filter Paper:</label>
+            <label style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 700 }}>{t("examiner.filter_paper", "Filter Paper:")}</label>
             <select
               value={selectedExamId || "ALL"}
               onChange={e => setSelectedExamId(e.target.value)}
               className="form-select"
               style={{ width: "260px", background: "rgba(15, 23, 42, 0.9)" }}
             >
-              <option value="ALL">🌟 All Examinations (Universal Feed)</option>
+              <option value="ALL">{t("examiner.all_exams_universal", "🌟 All Examinations (Universal Feed)")}</option>
               {exams.map(e => (
                 <option key={e.id} value={String(e.id)}>
                   {e.title} ({e.subject || "General"})
@@ -287,7 +290,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
               style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.55rem 1.15rem", fontSize: "0.85rem" }}
               title={pendingSubmissionsCount === 0 ? "All submissions approved" : `Release ${pendingSubmissionsCount} pending scorecards`}
             >
-              <CheckCheck size={16} /> Approve All ({pendingSubmissionsCount} Pending)
+              <CheckCheck size={16} /> {t("examiner.approve_all_pending", "Approve All ({count} Pending)", { count: pendingSubmissionsCount })}
             </button>
           )}
         </div>
@@ -297,14 +300,14 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1.25rem", marginBottom: "2rem" }}>
         <div className="glass-card" style={{ padding: "1.4rem" }}>
           <span style={{ fontSize: "0.8rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.35rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Total Submissions
+            {t("examiner.total_submissions", "Total Submissions")}
           </span>
           <span style={{ fontSize: "1.85rem", fontWeight: 800, color: "var(--text-main)" }}>{submissions.length}</span>
         </div>
         
         <div className="glass-card" style={{ padding: "1.4rem" }}>
           <span style={{ fontSize: "0.8rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.35rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Pending Examiner Verification
+            {t("examiner.pending_verification", "Pending Examiner Verification")}
           </span>
           <span style={{ fontSize: "1.85rem", fontWeight: 800, color: "#fbbf24" }}>
             {pendingSubmissionsCount}
@@ -313,7 +316,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
 
         <div className="glass-card" style={{ padding: "1.4rem" }}>
           <span style={{ fontSize: "0.8rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.35rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Approved & Released
+            {t("examiner.approved_released", "Approved & Released")}
           </span>
           <span style={{ fontSize: "1.85rem", fontWeight: 800, color: "#34d399" }}>
             {approvedSubmissionsCount}
@@ -322,7 +325,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
 
         <div className="glass-card" style={{ padding: "1.4rem" }}>
           <span style={{ fontSize: "0.8rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.35rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Average AI Proctor Trust
+            {t("examiner.avg_proctor_trust", "Average AI Proctor Trust")}
           </span>
           <span style={{ fontSize: "1.85rem", fontWeight: 800, color: avgIntegrity >= 80 ? "#818cf8" : "#f87171" }}>
             {avgIntegrity}%
@@ -339,7 +342,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
             <input
               type="text"
               className="form-input"
-              placeholder="Search candidate name, reg no, exam title..."
+              placeholder={t("examiner.search_audit_ph", "Search candidate name, reg no, exam title...")}
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{ paddingLeft: "2.5rem", width: "100%" }}
@@ -352,19 +355,19 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
               onClick={() => setFilterStatus("all")}
               className={`btn ${filterStatus === "all" ? "btn-primary" : "btn-secondary"} btn-sm`}
             >
-              All Submissions ({submissions.length})
+              {t("examiner.all_submissions_count", "All Submissions ({count})", { count: submissions.length })}
             </button>
             <button
               onClick={() => setFilterStatus("pending")}
               className={`btn ${filterStatus === "pending" ? "btn-primary" : "btn-secondary"} btn-sm`}
             >
-              Pending Review ({pendingSubmissionsCount})
+              {t("examiner.pending_review_count", "Pending Review ({count})", { count: pendingSubmissionsCount })}
             </button>
             <button
               onClick={() => setFilterStatus("approved")}
               className={`btn ${filterStatus === "approved" ? "btn-primary" : "btn-secondary"} btn-sm`}
             >
-              Released ({approvedSubmissionsCount})
+              {t("examiner.released_count", "Released ({count})", { count: approvedSubmissionsCount })}
             </button>
           </div>
         </div>
@@ -372,14 +375,14 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
         {loading ? (
           <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--text-muted)" }}>
             <RefreshCw size={32} className="spin-animation" style={{ margin: "0 auto 1rem", color: "#818cf8" }} />
-            <p style={{ fontSize: "1rem" }}>Loading candidate submissions and proctoring telemetry...</p>
+            <p style={{ fontSize: "1rem" }}>{t("examiner.loading_submissions", "Loading candidate submissions and proctoring telemetry...")}</p>
           </div>
         ) : filteredSubmissions.length === 0 ? (
           <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--text-muted)" }}>
             <UserCheck size={44} color="#64748b" style={{ margin: "0 auto 1rem" }} />
-            <p style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text-main)" }}>No candidate submissions found.</p>
+            <p style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text-main)" }}>{t("examiner.no_submissions_found", "No candidate submissions found.")}</p>
             <p style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>
-              {search ? "Try adjusting your search keywords." : "When students complete exams in the student portal, their scores and answer sheets appear here in real-time."}
+              {search ? t("examiner.adjust_search", "Try adjusting your search keywords.") : t("examiner.empty_feed_hint", "When students complete exams in the student portal, their scores and answer sheets appear here in real-time.")}
             </p>
           </div>
         ) : (
@@ -387,15 +390,15 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Candidate</th>
-                  <th>Register No & Dept</th>
-                  <th>Examination Paper</th>
-                  <th>Score / Max</th>
-                  <th>Percentage</th>
-                  <th>Result</th>
-                  <th>Status & Approval</th>
-                  <th>Proctor Trust</th>
-                  <th>Actions</th>
+                  <th>{t("examiner.col_candidate", "Candidate")}</th>
+                  <th>{t("examiner.col_reg_dept", "Register No & Dept")}</th>
+                  <th>{t("examiner.col_exam_paper", "Examination Paper")}</th>
+                  <th>{t("examiner.col_score_max", "Score / Max")}</th>
+                  <th>{t("examiner.col_percentage", "Percentage")}</th>
+                  <th>{t("common.result", "Result")}</th>
+                  <th>{t("examiner.col_status_approval", "Status & Approval")}</th>
+                  <th>{t("examiner.col_proctor_trust", "Proctor Trust")}</th>
+                  <th>{t("common.actions", "Actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,17 +428,17 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                     <td style={{ fontWeight: 700 }}>{sub.percentage}%</td>
                     <td>
                       <span className={`badge ${sub.passed ? "badge-approved" : "badge-rejected"}`}>
-                        {sub.passed ? "PASSED" : "FAILED"}
+                        {sub.passed ? t("common.passed", "PASSED") : t("common.failed", "FAILED")}
                       </span>
                     </td>
                     <td>
                       {sub.is_approved ? (
                         <span className="badge badge-result-approved" title={`Approved by ${sub.approved_by_name || "Examiner"}`}>
-                          <CheckCircle2 size={12} /> Released
+                          <CheckCircle2 size={12} /> {t("examiner.released_badge", "Released")}
                         </span>
                       ) : (
                         <span className="badge badge-under-review">
-                          <Clock size={12} /> Pending Review
+                          <Clock size={12} /> {t("examiner.pending_review_badge", "Pending Review")}
                         </span>
                       )}
                     </td>
@@ -451,7 +454,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                         </span>
                         {sub.violations_count > 0 && (
                           <span className="badge badge-rejected" style={{ fontSize: "0.65rem" }}>
-                            {sub.violations_count} Flags
+                            {sub.violations_count} {t("examiner.flags", "Flags")}
                           </span>
                         )}
                       </div>
@@ -463,7 +466,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                           className="btn btn-secondary"
                           style={{ padding: "0.4rem 0.85rem", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
                         >
-                          <Eye size={14} /> Audit & Grade
+                          <Eye size={14} /> {t("examiner.audit_grade_btn", "Audit & Grade")}
                         </button>
                         
                         {!sub.is_approved && (
@@ -474,7 +477,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                             style={{ padding: "0.4rem 0.85rem", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.35rem" }}
                             title="Approve and release scorecard to student"
                           >
-                            <CheckCircle2 size={14} /> Release
+                            <CheckCircle2 size={14} /> {t("examiner.release_btn", "Release")}
                           </button>
                         )}
                       </div>
@@ -494,7 +497,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
             {modalLoading || !sessionDetails ? (
               <div style={{ textAlign: "center", padding: "4rem 0" }}>
                 <RefreshCw size={32} className="spin-animation" style={{ margin: "0 auto 1rem", color: "#818cf8" }} />
-                <p>Loading candidate answer sheet and submission telemetry...</p>
+                <p>{t("examiner.loading_answer_sheet", "Loading candidate answer sheet and submission telemetry...")}</p>
               </div>
             ) : (
               <div>
@@ -503,12 +506,12 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", marginBottom: "0.35rem" }}>
                       <h2 style={{ fontSize: "1.45rem", fontWeight: 800, color: "var(--text-main)", margin: 0 }}>
-                        Candidate Answer Sheet: {sessionDetails.student_name}
+                        {t("examiner.modal_answer_sheet_title", "Candidate Answer Sheet: {name}", { name: sessionDetails.student_name })}
                       </h2>
                       {sessionDetails.is_approved ? (
-                        <span className="badge badge-result-approved"><CheckCircle2 size={13} /> Scorecard Released</span>
+                        <span className="badge badge-result-approved"><CheckCircle2 size={13} /> {t("examiner.scorecard_released", "Scorecard Released")}</span>
                       ) : (
-                        <span className="badge badge-under-review"><Clock size={13} /> Pending Examiner Release</span>
+                        <span className="badge badge-under-review"><Clock size={13} /> {t("examiner.pending_release", "Pending Examiner Release")}</span>
                       )}
                     </div>
                     <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -522,12 +525,12 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
 
                   <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.35rem" }}>
                     <div style={{ fontSize: "1.55rem", fontWeight: 800, color: "#34d399", fontFamily: "var(--font-mono)" }}>
-                      {sessionDetails.obtained_marks} / {sessionDetails.total_marks} Marks
+                      {sessionDetails.obtained_marks} / {sessionDetails.total_marks} {t("common.marks", "Marks")}
                     </div>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <span className="badge badge-approved">{sessionDetails.percentage}% Score</span>
+                      <span className="badge badge-approved">{sessionDetails.percentage}% {t("examiner.score", "Score")}</span>
                       <span className={`badge ${sessionDetails.passed ? "badge-approved" : "badge-rejected"}`}>
-                        {sessionDetails.passed ? "PASSED" : "FAILED"}
+                        {sessionDetails.passed ? t("common.passed", "PASSED") : t("common.failed", "FAILED")}
                       </span>
                     </div>
                   </div>
@@ -540,7 +543,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                     className={`btn btn-sm ${activeTab === "answers" ? "btn-primary" : "btn-secondary"}`}
                     style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
                   >
-                    <BookOpen size={15} /> Question & Answer Breakdown ({sessionDetails.question_breakdown?.length || 0})
+                    <BookOpen size={15} /> {t("examiner.qa_breakdown_tab", "Question & Answer Breakdown ({count})", { count: sessionDetails.question_breakdown?.length || 0 })}
                   </button>
                   <button
                     onClick={() => setActiveTab("telemetry")}
@@ -548,7 +551,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                     style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
                   >
                     <ShieldAlert size={15} color={sessionDetails.proctoring_summary?.violations_count > 0 ? "#f87171" : "#34d399"} />
-                    AI Proctoring Audit Log ({sessionDetails.proctoring_summary?.total_events || 0} events)
+                    {t("examiner.ai_proctor_log_tab", "AI Proctoring Audit Log ({count} events)", { count: sessionDetails.proctoring_summary?.total_events || 0 })}
                   </button>
                 </div>
 
@@ -561,12 +564,12 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                             <span style={{ fontWeight: 800, fontSize: "1rem" }}>Q{qb.order}.</span>
                             <span className="badge badge-type">{qb.question_type.replace("_", " ")}</span>
-                            <span className="badge badge-pending">{qb.marks_possible} Max Marks</span>
+                            <span className="badge badge-pending">{qb.marks_possible} {t("examiner.max_marks", "Max Marks")}</span>
                           </div>
 
                           {/* Grade Override Input */}
                           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <label style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600 }}>Marks Awarded:</label>
+                            <label style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600 }}>{t("examiner.marks_awarded", "Marks Awarded:")}</label>
                             <input
                               type="number"
                               step="0.5"
@@ -582,23 +585,23 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                               onClick={() => handleSaveOverride(qb.question_id)}
                               className="btn btn-secondary btn-sm"
                             >
-                              Update Grade
+                              {t("examiner.update_grade", "Update Grade")}
                             </button>
                           </div>
                         </div>
 
                         <p style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--text-main)", marginBottom: "0.85rem" }}>
-                          {qb.question_text}
+                          {translateContent(qb.question_text, language)}
                         </p>
 
                         {/* Candidate Answer Box */}
                         <div style={{ background: "rgba(0, 0, 0, 0.35)", padding: "1rem", borderRadius: "var(--radius-sm)", marginBottom: "0.85rem", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
                           <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--text-subtle)", display: "block", marginBottom: "0.4rem", letterSpacing: "0.03em" }}>
-                            CANDIDATE SUBMISSION
+                            {t("examiner.candidate_submission", "CANDIDATE SUBMISSION")}
                           </span>
                           {["SHORT_ANSWER", "LONG_ANSWER"].includes(qb.question_type) && (
                             <p style={{ fontSize: "0.875rem", color: "#f1f5f9", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                              {qb.text_answer || "No response submitted"}
+                              {translateContent(qb.text_answer, language) || t("examiner.no_response_submitted", "No response submitted")}
                             </p>
                           )}
                           {qb.question_type === "IMAGE_UPLOAD" && (
@@ -608,15 +611,17 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                                   <img src={qb.image_url} alt="Candidate diagram submission" style={{ maxWidth: "100%", maxHeight: "300px", objectFit: "contain" }} />
                                 </div>
                               ) : (
-                                <span style={{ fontSize: "0.85rem", color: "var(--text-subtle)" }}>No diagram image uploaded</span>
+                                <span style={{ fontSize: "0.85rem", color: "var(--text-subtle)" }}>{t("exam_result.no_diagram_uploaded", "No handwritten diagram uploaded")}</span>
                               )}
                             </div>
                           )}
                           {["MCQ", "MULTI_SELECT"].includes(qb.question_type) && (
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                              {qb.options?.map(opt => {
+                              {qb.options?.map((opt, oIdx) => {
                                 const isSelected = (qb.selected_option_ids || []).includes(opt.id);
                                 const isCorrectOpt = opt.is_correct;
+                                const letter = getLocalizedOptionLabel(oIdx, language);
+                                const displayOptText = translateContent(opt.option_text, language);
                                 return (
                                   <div 
                                     key={opt.id}
@@ -636,17 +641,17 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                                     }}
                                   >
                                     <span style={{ color: isSelected ? "#fff" : "var(--text-muted)" }}>
-                                      {opt.option_text}
+                                      <strong>{letter}.</strong> {displayOptText}
                                     </span>
                                     <div style={{ display: "flex", gap: "0.4rem" }}>
                                       {isSelected && (
                                         <span className={`badge ${isCorrectOpt ? "badge-approved" : "badge-rejected"}`} style={{ fontSize: "0.68rem" }}>
-                                          Selected
+                                          {t("examiner.selected_badge", "Selected")}
                                         </span>
                                       )}
                                       {isCorrectOpt && (
                                         <span className="badge badge-approved" style={{ fontSize: "0.68rem" }}>
-                                          Answer Key
+                                          {t("examiner.answer_key_badge", "Answer Key")}
                                         </span>
                                       )}
                                     </div>
@@ -661,16 +666,16 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                         {(qb.model_answer || qb.evaluation_guidelines) && (
                           <div style={{ background: "rgba(99, 102, 241, 0.07)", border: "1px solid rgba(99, 102, 241, 0.2)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem", marginBottom: "0.75rem" }}>
                             <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#818cf8", display: "block", marginBottom: "0.25rem" }}>
-                              REFERENCE MODEL ANSWER & RUBRIC GUIDELINES
+                              {t("examiner.model_answer_rubric_header", "REFERENCE MODEL ANSWER & RUBRIC GUIDELINES")}
                             </span>
                             {qb.model_answer && (
                               <p style={{ fontSize: "0.825rem", color: "#e0e7ff", margin: "0 0 0.35rem" }}>
-                                <strong>Expected Answer:</strong> {qb.model_answer}
+                                <strong>{t("modals.model_answer", "Expected / Model Answer:")}</strong> {translateContent(qb.model_answer, language)}
                               </p>
                             )}
                             {qb.evaluation_guidelines && (
                               <p style={{ fontSize: "0.825rem", color: "#c7d2fe", margin: 0 }}>
-                                <strong>Grading Criteria:</strong> {qb.evaluation_guidelines}
+                                <strong>{t("examiner.grading_criteria", "Grading Criteria:")}</strong> {translateContent(qb.evaluation_guidelines, language)}
                               </p>
                             )}
                           </div>
@@ -692,39 +697,64 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                   <div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
                       <div className="glass-card" style={{ padding: "1rem" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block" }}>Trust Rating</span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block" }}>{t("examiner.trust_rating", "Integrity Trust Score")}</span>
                         <span style={{ fontSize: "1.5rem", fontWeight: 800, color: sessionDetails.proctoring_summary?.integrity_score >= 80 ? "#34d399" : "#f87171" }}>
                           {sessionDetails.proctoring_summary?.integrity_score}%
                         </span>
                       </div>
                       <div className="glass-card" style={{ padding: "1rem" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block" }}>Total Violations</span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block" }}>{t("examiner.total_violations", "Total Violations")}</span>
                         <span style={{ fontSize: "1.5rem", fontWeight: 800, color: sessionDetails.proctoring_summary?.violations_count > 0 ? "#f87171" : "#34d399" }}>
                           {sessionDetails.proctoring_summary?.violations_count || 0}
                         </span>
                       </div>
                       <div className="glass-card" style={{ padding: "1rem" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block" }}>Total Telemetry Events</span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block" }}>{t("examiner.total_telemetry_events", "Total Telemetry Events")}</span>
                         <span style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-main)" }}>
                           {sessionDetails.proctoring_summary?.total_events || 0}
                         </span>
                       </div>
                     </div>
 
+                    {/* Specific Event Breakdown Chips */}
+                    {sessionDetails.proctoring_summary?.events_breakdown && Object.keys(sessionDetails.proctoring_summary.events_breakdown).length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1.25rem", padding: "0.85rem 1rem", background: "rgba(15, 23, 42, 0.5)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-subtle)", alignSelf: "center", marginRight: "0.5rem" }}>
+                          Violation Breakdown:
+                        </span>
+                        {Object.entries(sessionDetails.proctoring_summary.events_breakdown).map(([type, count]) => (
+                          <span
+                            key={type}
+                            style={{
+                              fontSize: "0.75rem",
+                              padding: "0.25rem 0.6rem",
+                              borderRadius: "6px",
+                              background: "rgba(239, 68, 68, 0.15)",
+                              border: "1px solid rgba(239, 68, 68, 0.3)",
+                              color: "#fca5a5",
+                              fontWeight: 600
+                            }}
+                          >
+                            {type.replace(/_/g, " ")}: <strong>{count}</strong>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     {sessionDetails.proctoring_summary?.recent_events?.length === 0 ? (
                       <div style={{ textAlign: "center", padding: "3rem 0", color: "var(--text-muted)" }}>
                         <ShieldCheck size={40} color="#34d399" style={{ margin: "0 auto 0.75rem" }} />
-                        <p style={{ color: "var(--text-main)", fontWeight: 700 }}>Clean Proctoring Record</p>
-                        <p style={{ fontSize: "0.85rem" }}>No suspicious tab switching, background gaze, or audio anomalies detected during this exam session.</p>
+                        <p style={{ color: "var(--text-main)", fontWeight: 700 }}>{t("examiner.clean_proctor_record", "Clean Proctoring Record")}</p>
+                        <p style={{ fontSize: "0.85rem" }}>{t("examiner.clean_proctor_desc", "No suspicious tab switching, background gaze, or audio anomalies detected during this exam session.")}</p>
                       </div>
                     ) : (
                       <div className="table-responsive">
                         <table className="data-table">
                           <thead>
                             <tr>
-                              <th>Event Type</th>
-                              <th>Details</th>
-                              <th>Timestamp</th>
+                              <th>{t("examiner.col_event_type", "Event Type")}</th>
+                              <th>{t("examiner.col_details", "Details")}</th>
+                              <th>{t("examiner.col_timestamp", "Timestamp")}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -753,17 +783,17 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                 {/* Faculty Approval Box */}
                 <div style={{ marginTop: "2rem", padding: "1.5rem", background: "rgba(15, 23, 42, 0.6)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)" }}>
                   <h4 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "0.5rem", color: "var(--text-main)" }}>
-                    Examiner Verification & Release Decision
+                    {t("examiner.approval_box_title", "Examiner Verification & Release Decision")}
                   </h4>
                   <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
-                    Once approved, the student will immediately see their finalized scorecard, grades, question breakdowns, and proctoring trust analysis in the student portal.
+                    {t("examiner.approval_box_desc", "Once approved, the student will immediately see their finalized scorecard, grades, question breakdowns, and proctoring trust analysis in the student portal.")}
                   </p>
                   
                   <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
                     <input
                       type="text"
                       className="form-input"
-                      placeholder="Optional remarks (e.g. Verified handwritten diagram schematic; full credit approved)"
+                      placeholder={t("examiner.approval_notes_ph", "Optional remarks (e.g. Verified handwritten diagram schematic; full credit approved)")}
                       value={approvalNotesInput}
                       onChange={e => setApprovalNotesInput(e.target.value)}
                       style={{ flex: 1, minWidth: "260px" }}
@@ -776,14 +806,14 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                       style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.65rem 1.35rem" }}
                     >
                       <CheckCircle2 size={16} />
-                      {sessionDetails.is_approved ? "Update Approval Remarks" : "Approve & Release Scorecard"}
+                      {sessionDetails.is_approved ? t("examiner.update_remarks", "Update Approval Remarks") : t("examiner.approve_release_scorecard", "Approve & Release Scorecard")}
                     </button>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1.75rem" }}>
                   <button onClick={() => setActiveSessionToken(null)} className="btn btn-secondary">
-                    Close Audit Sheet
+                    {t("examiner.close_audit_sheet", "Close Audit Sheet")}
                   </button>
                 </div>
               </div>

@@ -39,6 +39,30 @@ def sync_database_schema():
         if "evaluation_guidelines" not in q_cols:
             cursor.execute("ALTER TABLE question_bank ADD COLUMN evaluation_guidelines TEXT")
             print("Added evaluation_guidelines to question_bank")
+            
+        # Multilingual columns for question_bank
+        for lang in ["en", "ta", "te", "hi", "ml", "kn"]:
+            col = f"question_text_{lang}"
+            if col not in q_cols:
+                cursor.execute(f"ALTER TABLE question_bank ADD COLUMN {col} TEXT")
+                print(f"Added {col} to question_bank")
+            exp_col = f"explanation_{lang}"
+            if exp_col not in q_cols:
+                cursor.execute(f"ALTER TABLE question_bank ADD COLUMN {exp_col} TEXT")
+                print(f"Added {exp_col} to question_bank")
+            model_col = f"model_answer_{lang}"
+            if model_col not in q_cols:
+                cursor.execute(f"ALTER TABLE question_bank ADD COLUMN {model_col} TEXT")
+                print(f"Added {model_col} to question_bank")
+
+        # Check options table
+        cursor.execute("PRAGMA table_info(options)")
+        opt_cols = {row[1] for row in cursor.fetchall()}
+        for lang in ["en", "ta", "te", "hi", "ml", "kn"]:
+            col = f"option_text_{lang}"
+            if col not in opt_cols:
+                cursor.execute(f"ALTER TABLE options ADD COLUMN {col} TEXT")
+                print(f"Added {col} to options")
 
         # Check exams table
         cursor.execute("PRAGMA table_info(exams)")
@@ -46,6 +70,13 @@ def sync_database_schema():
         if "passing_marks" not in exam_cols:
             cursor.execute("ALTER TABLE exams ADD COLUMN passing_marks FLOAT DEFAULT 40.0")
             print("Added passing_marks to exams")
+        
+        for lang in ["en", "ta", "te", "hi", "ml", "kn"]:
+            for prefix in ["title", "subject", "description", "instructions"]:
+                col = f"{prefix}_{lang}"
+                if col not in exam_cols:
+                    cursor.execute(f"ALTER TABLE exams ADD COLUMN {col} TEXT")
+                    print(f"Added {col} to exams")
 
         # Check answers table
         cursor.execute("PRAGMA table_info(answers)")

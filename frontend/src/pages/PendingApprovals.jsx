@@ -17,9 +17,11 @@ import { StatusBadge } from "../components/StatusBadge";
 import { StudentDetailModal } from "../components/StudentDetailModal";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export const PendingApprovals = ({ onStatsUpdated }) => {
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,19 +114,19 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.75rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
-            <span className="badge badge-pending">Registration Gatekeeper</span>
+            <span className="badge badge-pending">{t("admin.pending_approvals_title", null, "Registration Gatekeeper")}</span>
           </div>
           <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.02em" }}>
-            Student Approval Management
+            {t("admin.pending_approvals_title", null, "Student Approval Management")}
           </h1>
           <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-            Verify candidate institutional credentials, inspect student profiles, and grant examination permissions
+            {t("admin.dashboard_sub", null, "Verify candidate institutional credentials, inspect student profiles, and grant examination permissions")}
           </p>
         </div>
 
         <button onClick={fetchStudents} className="btn btn-secondary btn-sm">
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          Refresh List
+          {t("common.refresh", null, "Refresh List")}
         </button>
       </div>
 
@@ -136,7 +138,7 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
             <input
               type="text"
               className="form-control"
-              placeholder="Search by Name, Email, or Register Number..."
+              placeholder={t("question_bank.search_placeholder", null, "Search by Name, Email, or Register Number...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: "2.5rem" }}
@@ -153,7 +155,7 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
             >
               {departments.map((dept) => (
                 <option key={dept} value={dept}>
-                  {dept === "ALL" ? "All Departments" : dept}
+                  {dept === "ALL" ? t("common.all", null, "All Departments") : dept}
                 </option>
               ))}
             </select>
@@ -166,15 +168,15 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="ALL">All Statuses</option>
-              <option value="PENDING">Pending Only</option>
-              <option value="APPROVED">Approved Only</option>
-              <option value="REJECTED">Rejected Only</option>
+              <option value="ALL">{t("common.all", null, "All Statuses")}</option>
+              <option value="PENDING">{t("common.pending", null, "Pending Only")}</option>
+              <option value="APPROVED">{t("common.approved", null, "Approved Only")}</option>
+              <option value="REJECTED">{t("common.rejected", null, "Rejected Only")}</option>
             </select>
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ padding: "0.75rem 1.25rem" }}>
-            Search
+            {t("common.search", null, "Search")}
           </button>
         </form>
       </div>
@@ -185,21 +187,21 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
           <table className="custom-table">
             <thead>
               <tr>
-                <th>Student Name</th>
-                <th>Register Number</th>
-                <th>Email</th>
-                <th>Department</th>
-                <th>Year</th>
-                <th>Registration Date</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
+                <th>{t("modals.full_name", null, "Student Name")}</th>
+                <th>{t("modals.register_number", null, "Register Number")}</th>
+                <th>{t("common.email", null, "Email")}</th>
+                <th>{t("common.department", null, "Department")}</th>
+                <th>{t("common.year", null, "Year")}</th>
+                <th>{t("common.created_at", null, "Registration Date")}</th>
+                <th>{t("common.status", null, "Status")}</th>
+                <th style={{ textAlign: "right" }}>{t("common.actions", null, "Actions")}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
                   <td colSpan="8" style={{ textAlign: "center", color: "var(--text-muted)", padding: "3rem" }}>
-                    Loading candidate registrations...
+                    {t("common.loading", null, "Loading candidate registrations...")}
                   </td>
                 </tr>
               ) : students.length > 0 ? (
@@ -212,7 +214,7 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
                     </td>
                     <td>
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--primary-light)", fontWeight: 700 }}>
-                        {student.register_number || "N/A"}
+                        {student.register_number || t("common.na", null, "N/A")}
                       </span>
                     </td>
                     <td>
@@ -249,7 +251,7 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
                           }}
                         >
                           <Eye size={14} />
-                          Details
+                          {t("common.details", null, "Details")}
                         </button>
                         {student.approval_status === "PENDING" && (
                           <>
@@ -262,7 +264,7 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
                               }}
                             >
                               <CheckCircle2 size={14} />
-                              Approve
+                              {t("admin.approve_btn", null, "Approve")}
                             </button>
                             <button
                               className="btn btn-rose btn-sm"
@@ -273,7 +275,7 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
                               }}
                             >
                               <XCircle size={14} />
-                              Reject
+                              {t("admin.reject_btn", null, "Reject")}
                             </button>
                           </>
                         )}
@@ -284,7 +286,7 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
               ) : (
                 <tr>
                   <td colSpan="8" style={{ textAlign: "center", color: "var(--text-subtle)", padding: "3rem" }}>
-                    No student registrations found matching the current filters.
+                    {t("admin.no_pending", null, "No student registrations found matching the current filters.")}
                   </td>
                 </tr>
               )}
@@ -313,9 +315,9 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
       {/* Approve Confirmation Modal */}
       <ConfirmModal
         isOpen={showApproveConfirm}
-        title="Confirm Student Approval"
+        title={t("modals.approve_student", null, "Confirm Student Approval")}
         message={`Are you sure you want to approve "${selectedStudent?.name}" (Reg: ${selectedStudent?.register_number})? This student will now be permitted to log in and sit for scheduled examinations.`}
-        confirmText="Confirm & Approve"
+        confirmText={t("common.confirm", null, "Confirm & Approve")}
         type="emerald"
         loading={actionLoading}
         onConfirm={handleApprove}
@@ -325,12 +327,12 @@ export const PendingApprovals = ({ onStatsUpdated }) => {
       {/* Reject Confirmation Modal */}
       <ConfirmModal
         isOpen={showRejectConfirm}
-        title="Confirm Student Rejection"
+        title={t("modals.reject_request", null, "Confirm Student Rejection")}
         message={`Are you sure you want to reject "${selectedStudent?.name}"? You may optionally provide a reason below explaining why verification could not be completed.`}
-        confirmText="Reject Registration"
+        confirmText={t("admin.reject_btn", null, "Reject Registration")}
         type="rose"
         showReasonInput={true}
-        reasonPlaceholder="e.g. Incomplete institutional documentation or duplicate student ID."
+        reasonPlaceholder={t("modals.rejection_reason_placeholder", null, "e.g. Incomplete institutional documentation or duplicate student ID.")}
         loading={actionLoading}
         onConfirm={handleReject}
         onCancel={() => setShowRejectConfirm(false)}

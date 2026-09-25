@@ -24,9 +24,12 @@ import { QuestionDetailModal } from "../components/QuestionDetailModal";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { DocumentQuestionExtractor } from "../components/DocumentQuestionExtractor";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
+import { translateContent } from "../services/translator";
 
 export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
   const { showToast } = useToast();
+  const { language, t } = useLanguage();
 
   const [questions, setQuestions] = useState([]);
   const [stats, setStats] = useState(null);
@@ -113,21 +116,21 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.75rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
-            <span className="badge badge-role-examiner">Repository Studio</span>
-            <span style={{ fontSize: "0.8rem", color: "var(--text-subtle)" }}>Central Assessment Engine</span>
+            <span className="badge badge-role-examiner">{t("question_bank.repository_studio", "Repository Studio")}</span>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-subtle)" }}>{t("question_bank.central_engine", "Central Assessment Engine")}</span>
           </div>
           <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.02em" }}>
-            Question Bank Management
+            {t("question_bank.title", "Question Bank Management")}
           </h1>
           <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-            Author, categorize, filter, and review multi-modal examination items with scoring rubrics
+            {t("question_bank.sub", "Author, categorize, filter, and review multi-modal examination items with scoring rubrics")}
           </p>
         </div>
 
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           <button onClick={fetchQuestions} className="btn btn-secondary btn-sm">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            Refresh
+            {t("common.refresh", "Refresh")}
           </button>
           <button
             onClick={() => setShowExtractModal(true)}
@@ -143,7 +146,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
             }}
           >
             <FileSpreadsheet size={16} color="#34d399" />
-            Import from File (Excel / Word / PDF)
+            {t("question_bank.import_questions_btn", "Import from File (Excel / Word / PDF)")}
           </button>
           <button
             onClick={() => setCurrentView("add_question")}
@@ -151,7 +154,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
             style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
           >
             <PlusCircle size={18} />
-            Add New Question
+            {t("question_bank.new_question_btn", "Add New Question")}
           </button>
           <button
             onClick={() => setCurrentView("create_exam")}
@@ -165,7 +168,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
             }}
           >
             <Dices size={18} />
-            Create Exam
+            {t("question_bank.create_exam_action", "Create Exam")}
           </button>
         </div>
       </div>
@@ -173,39 +176,39 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
       {/* KPI Stats Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "2rem" }}>
         <StatCard
-          title="Total Questions"
+          title={t("question_bank.stat_total_questions", "Total Questions")}
           value={stats?.total_questions || 0}
           icon={HelpCircle}
           color="indigo"
-          subtitle="All Subjects"
+          subtitle={t("question_bank.all_subjects", "All Subjects")}
         />
         <StatCard
-          title="MCQ (Single)"
+          title={t("question_bank.stat_mcq", "MCQ (Single)")}
           value={stats?.mcq_count || 0}
           icon={CheckSquare}
           color="cyan"
-          subtitle="Radio Choice"
+          subtitle={t("question_bank.radio_choice", "Radio Choice")}
         />
         <StatCard
-          title="Multi-Select"
+          title={t("question_bank.stat_multi_select", "Multi-Select")}
           value={stats?.multi_select_count || 0}
           icon={Layers}
           color="purple"
-          subtitle="Multiple Correct"
+          subtitle={t("question_bank.multiple_correct", "Multiple Correct")}
         />
         <StatCard
-          title="Subjective"
+          title={t("question_bank.stat_short_long", "Subjective")}
           value={stats?.subjective_count || 0}
           icon={FileText}
           color="emerald"
-          subtitle="Short & Long Form"
+          subtitle={t("question_bank.short_long_form", "Short & Long Form")}
         />
         <StatCard
-          title="Image Upload"
+          title={t("question_bank.stat_diagram", "Image Upload")}
           value={stats?.image_upload_count || 0}
           icon={ImageIcon}
           color="amber"
-          subtitle="Diagrams / Drawings"
+          subtitle={t("question_bank.diagrams_drawings", "Diagrams / Drawings")}
         />
       </div>
 
@@ -217,7 +220,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
             <input
               type="text"
               className="form-control"
-              placeholder="Search question text or concepts..."
+              placeholder={t("question_bank.search_placeholder", "Search question text or concepts...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: "2.3rem" }}
@@ -232,7 +235,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
             >
-              <option value="ALL">All Subjects</option>
+              <option value="ALL">{t("question_bank.all_subjects", "All Subjects")}</option>
               <option value="Data Structures & Algorithms">Data Structures</option>
               <option value="Artificial Intelligence">Artificial Intelligence</option>
               <option value="Database Systems">Database Systems</option>
@@ -249,12 +252,12 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
               value={questionType}
               onChange={(e) => setQuestionType(e.target.value)}
             >
-              <option value="ALL">All Question Types</option>
-              <option value="MCQ">MCQ (Single Choice)</option>
-              <option value="MULTI_SELECT">Multi-Select</option>
-              <option value="SHORT_ANSWER">Short Answer</option>
-              <option value="LONG_ANSWER">Long Answer</option>
-              <option value="IMAGE_UPLOAD">Image Upload</option>
+              <option value="ALL">{t("question_bank.all_types", "All Question Types")}</option>
+              <option value="MCQ">{t("status.mcq_single", "MCQ (Single Choice)")}</option>
+              <option value="MULTI_SELECT">{t("status.multi_select", "Multi-Select")}</option>
+              <option value="SHORT_ANSWER">{t("status.short_answer", "Short Answer")}</option>
+              <option value="LONG_ANSWER">{t("status.long_answer", "Long Answer")}</option>
+              <option value="IMAGE_UPLOAD">{t("status.image_upload", "Image Upload")}</option>
             </select>
           </div>
 
@@ -265,10 +268,10 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
               value={difficulty}
               onChange={(e) => setDifficulty(e.target.value)}
             >
-              <option value="ALL">All Difficulties</option>
-              <option value="EASY">Easy</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HARD">Hard</option>
+              <option value="ALL">{t("question_bank.all_difficulties", "All Difficulties")}</option>
+              <option value="EASY">{t("status.easy", "Easy")}</option>
+              <option value="MEDIUM">{t("status.medium", "Medium")}</option>
+              <option value="HARD">{t("status.hard", "Hard")}</option>
             </select>
           </div>
 
@@ -278,7 +281,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
               type="number"
               step="0.5"
               min="0"
-              placeholder="Min Marks"
+              placeholder={t("question_bank.min_marks_placeholder", "Min Marks")}
               className="form-control"
               value={minMarks}
               onChange={(e) => setMinMarks(e.target.value)}
@@ -286,7 +289,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
           </div>
 
           <button type="submit" className="btn btn-primary">
-            Apply Filters
+            {t("question_bank.filter_btn", "Apply Filters")}
           </button>
         </form>
       </div>
@@ -297,21 +300,21 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
           <table className="custom-table">
             <thead>
               <tr>
-                <th style={{ width: "70px" }}>ID</th>
-                <th>Question Preview</th>
-                <th>Type</th>
-                <th>Subject</th>
-                <th>Difficulty</th>
-                <th>Marks</th>
-                <th>Created By</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
+                <th style={{ width: "70px" }}>{t("common.id", "ID")}</th>
+                <th>{t("question_bank.col_question", "Question Preview")}</th>
+                <th>{t("question_bank.col_type", "Type")}</th>
+                <th>{t("question_bank.col_subject", "Subject")}</th>
+                <th>{t("question_bank.col_difficulty", "Difficulty")}</th>
+                <th>{t("question_bank.col_marks", "Marks")}</th>
+                <th>{t("question_bank.col_created_by", "Created By")}</th>
+                <th style={{ textAlign: "right" }}>{t("question_bank.col_actions", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
                   <td colSpan="8" style={{ textAlign: "center", color: "var(--text-muted)", padding: "3rem" }}>
-                    Loading question bank repository...
+                    {t("question_bank.loading_repository", "Loading question bank repository...")}
                   </td>
                 </tr>
               ) : questions.length > 0 ? (
@@ -335,11 +338,11 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
                           overflow: "hidden"
                         }}
                       >
-                        {q.question_text}
+                        {translateContent(q.question_text, language)}
                       </div>
                       {q.options && q.options.length > 0 && (
                         <span style={{ fontSize: "0.725rem", color: "var(--text-subtle)", marginTop: "2px", display: "inline-block" }}>
-                          {q.options.length} options configured
+                          {t("question_bank.options_configured", "{count} options configured", { count: q.options.length })}
                         </span>
                       )}
                     </td>
@@ -348,7 +351,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
                     </td>
                     <td>
                       <span style={{ fontSize: "0.85rem", color: "var(--text-main)", fontWeight: 500 }}>
-                        {q.subject}
+                        {translateContent(q.subject, language)}
                       </span>
                     </td>
                     <td>
@@ -361,7 +364,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
                         </span>
                         {q.negative_marks > 0 && (
                           <span style={{ fontSize: "0.7rem", color: "#fb7185" }}>
-                            -{q.negative_marks} neg
+                            -{q.negative_marks} {t("common.neg_marks", "neg")}
                           </span>
                         )}
                       </div>
@@ -375,7 +378,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
                       <div style={{ display: "inline-flex", gap: "0.35rem" }}>
                         <button
                           className="btn btn-secondary btn-sm"
-                          title="View Full Question & Solution"
+                          title={t("question_bank.preview_tooltip", "View Full Question & Solution")}
                           onClick={() => {
                             setSelectedQuestion(q);
                             setShowDetailModal(true);
@@ -386,7 +389,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
-                          title="Edit Question"
+                          title={t("question_bank.edit_tooltip", "Edit Question")}
                           onClick={() => handleEdit(q)}
                           style={{ padding: "0.35rem 0.55rem" }}
                         >
@@ -394,7 +397,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
                         </button>
                         <button
                           className="btn btn-rose btn-sm"
-                          title="Delete Question"
+                          title={t("question_bank.delete_tooltip", "Delete Question")}
                           onClick={() => {
                             setSelectedQuestion(q);
                             setShowDeleteConfirm(true);
@@ -410,7 +413,7 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
               ) : (
                 <tr>
                   <td colSpan="8" style={{ textAlign: "center", color: "var(--text-subtle)", padding: "3rem" }}>
-                    No questions found matching your filter criteria.
+                    {t("question_bank.no_questions_found", "No questions found matching your filter criteria.")}
                   </td>
                 </tr>
               )}
@@ -437,9 +440,9 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
       {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
-        title="Delete Question from Bank"
-        message={`Are you sure you want to permanently delete Question #${selectedQuestion?.id}? This item will be removed from all upcoming tests and exam papers.`}
-        confirmText="Delete Question"
+        title={t("question_bank.delete_confirm_title", "Delete Question from Bank")}
+        message={t("question_bank.delete_confirm_message", "Are you sure you want to permanently delete Question #{id}? This item will be removed from all upcoming tests and exam papers.", { id: selectedQuestion?.id })}
+        confirmText={t("common.delete", "Delete Question")}
         type="rose"
         loading={actionLoading}
         onConfirm={handleDelete}
@@ -481,10 +484,10 @@ export const QuestionBank = ({ setCurrentView, onSelectEditQuestion }) => {
               <div>
                 <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <FileSpreadsheet size={20} color="#34d399" />
-                  Import Questions to Repository
+                  {t("question_bank.import_modal_title", "Import Questions to Repository")}
                 </h3>
                 <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                  Upload Excel, Word, PDF or paste text to bulk extract questions directly into your Question Bank.
+                  {t("question_bank.import_modal_desc", "Upload Excel, Word, PDF or paste text to bulk extract questions directly into your Question Bank.")}
                 </p>
               </div>
               <button

@@ -14,52 +14,60 @@ import {
   ChevronRight
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export const Sidebar = ({ currentView, setCurrentView, pendingCount = 0, pendingExaminersCount = 0 }) => {
   const { user, isAdmin, isExaminer, isStudent } = useAuth();
+  const { t } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
 
   const adminNavItems = [
-    { id: "admin_dashboard", label: "Admin Overview", icon: LayoutDashboard },
+    { id: "admin_dashboard", label: t("sidebar.admin_overview", null, "Admin Overview"), icon: LayoutDashboard },
     { 
       id: "admin_examiners", 
-      label: "Approval of Examiner", 
+      label: t("sidebar.examiner_approvals", null, "Approval of Examiner"), 
       icon: ShieldCheck,
       badge: pendingExaminersCount > 0 ? pendingExaminersCount : null,
       badgeColor: "#fbbf24"
     },
     { 
       id: "enrolled_students", 
-      label: "Enrolled Students", 
+      label: t("sidebar.enrolled_students", null, "Enrolled Students"), 
       icon: Users, 
       badge: pendingCount > 0 ? pendingCount : null,
       badgeColor: "#fbbf24"
     },
-    { id: "admin_available_exams", label: "Available Exams", icon: Layers },
-    { id: "question_bank", label: "Question Bank Hub", icon: HelpCircle },
-    { id: "create_exam", label: "Create Exam", icon: PlusCircle }
+    { id: "admin_available_exams", label: t("sidebar.available_exams", null, "Available Exams"), icon: Layers },
+    { id: "question_bank", label: t("sidebar.question_bank", null, "Question Bank Hub"), icon: HelpCircle },
+    { id: "create_exam", label: t("sidebar.create_exam", null, "Create Exam"), icon: PlusCircle }
   ];
 
   const examinerNavItems = [
-    { id: "examiner_dashboard", label: "Examiner Dashboard", icon: LayoutDashboard },
-    { id: "created_exams", label: "Created Exams", icon: Layers },
-    { id: "create_exam", label: "Create Exam (Random)", icon: PlusCircle },
-    { id: "enrolled_students", label: "Enrolled Students", icon: Users },
-    { id: "examiner_results_audit", label: "Candidate Submissions", icon: FileCheck2 },
-    { id: "question_bank", label: "Question Bank Hub", icon: HelpCircle },
-    { id: "add_question", label: "Create Question", icon: PlusCircle }
+    { id: "examiner_dashboard", label: t("sidebar.examiner_dashboard", null, "Examiner Dashboard"), icon: LayoutDashboard },
+    { id: "created_exams", label: t("sidebar.created_exams", null, "Created Exams"), icon: Layers },
+    { id: "create_exam", label: t("sidebar.create_exam_random", null, "Create Exam (Random)"), icon: PlusCircle },
+    { id: "enrolled_students", label: t("sidebar.enrolled_students", null, "Enrolled Students"), icon: Users },
+    { id: "examiner_results_audit", label: t("sidebar.candidate_submissions", null, "Candidate Submissions"), icon: FileCheck2 },
+    { id: "question_bank", label: t("sidebar.question_bank", null, "Question Bank Hub"), icon: HelpCircle },
+    { id: "add_question", label: t("sidebar.create_question", null, "Create Question"), icon: PlusCircle }
   ];
 
   const studentNavItems = [
-    { id: "available_exams", label: "Available Exams", icon: Layers },
-    { id: "student_dashboard", label: "Student Dashboard", icon: GraduationCap },
-    { id: "my_results", label: "My Scorecards & Results", icon: FileCheck2 }
+    { id: "available_exams", label: t("sidebar.available_exams", null, "Available Exams"), icon: Layers },
+    { id: "student_dashboard", label: t("sidebar.student_dashboard", null, "Student Dashboard"), icon: GraduationCap },
+    { id: "my_results", label: t("sidebar.my_results", null, "My Scorecards & Results"), icon: FileCheck2 }
   ];
 
   let items = [];
   if (isAdmin) items = adminNavItems;
   else if (isExaminer) items = examinerNavItems;
   else if (isStudent) items = studentNavItems;
+
+  const panelHeaderTitle = isAdmin 
+    ? t("sidebar.admin_panel", null, "Admin Panel") 
+    : isExaminer 
+      ? t("sidebar.faculty_studio", null, "Faculty Studio") 
+      : t("sidebar.student_portal", null, "Student Portal");
 
   return (
     <aside
@@ -95,12 +103,12 @@ export const Sidebar = ({ currentView, setCurrentView, pendingCount = 0, pending
         >
           {!collapsed && (
             <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-subtle)", letterSpacing: "0.08em" }}>
-              {isAdmin ? "Admin Panel" : isExaminer ? "Faculty Studio" : "Student Portal"}
+              {panelHeaderTitle}
             </span>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? t("sidebar.expand_sidebar", null, "Expand sidebar") : t("sidebar.collapse_sidebar", null, "Collapse sidebar")}
             style={{
               background: "rgba(30, 41, 59, 0.6)",
               border: "1px solid var(--border-color)",
@@ -205,18 +213,19 @@ export const Sidebar = ({ currentView, setCurrentView, pendingCount = 0, pending
           <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", marginBottom: "0.35rem" }}>
             <Sparkles size={15} color="#818cf8" />
             <span style={{ fontSize: "0.825rem", fontWeight: 700, color: "#c7d2fe" }}>
-              AI Engine v2.6
+              {t("sidebar.ai_engine_active", null, "AI Engine v2.6")}
             </span>
           </div>
           <p style={{ fontSize: "0.75rem", color: "var(--text-subtle)", lineHeight: 1.45, margin: 0 }}>
-            Proctoring & Vision Grading Active.
+            {t("sidebar.proctoring_active", null, "Proctoring & Vision Grading Active.")}
           </p>
         </div>
       ) : (
-        <div style={{ display: "flex", justifyContent: "center", padding: "0.5rem 0" }} title="AI Engine v2.6 Active">
+        <div style={{ display: "flex", justifyContent: "center", padding: "0.5rem 0" }} title={t("sidebar.ai_engine_active", null, "AI Engine v2.6 Active")}>
           <Sparkles size={20} color="#818cf8" />
         </div>
       )}
     </aside>
   );
 };
+

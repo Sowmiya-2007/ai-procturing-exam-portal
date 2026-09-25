@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import { GraduationCap, Lock, Mail, AlertTriangle, AlertCircle, CheckCircle, ArrowRight, HelpCircle, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 import { api } from "../services/api";
 
 export const StudentLogin = ({ setCurrentView }) => {
   const { login } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -92,10 +94,10 @@ export const StudentLogin = ({ setCurrentView }) => {
             <GraduationCap size={34} />
           </div>
           <h1 style={{ fontSize: "2.1rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.025em", marginBottom: "0.5rem" }}>
-            Student Examination Login
+            {t("login.student_title", null, "Student Examination Login")}
           </h1>
           <p style={{ fontSize: "0.95rem", color: "var(--text-muted)", lineHeight: 1.55 }}>
-            Enter your student credentials to access scheduled candidate evaluations
+            {t("login.student_sub", null, "Enter your student credentials to access scheduled candidate evaluations")}
           </p>
         </div>
 
@@ -128,7 +130,9 @@ export const StudentLogin = ({ setCurrentView }) => {
             )}
             <div style={{ fontSize: "0.95rem", lineHeight: 1.55 }}>
               <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>
-                {statusAlert.type === "pending" ? "Approval Required" : "Access Denied"}
+                {statusAlert.type === "pending" 
+                  ? t("login.approval_required", null, "Approval Required") 
+                  : t("login.access_denied", null, "Access Denied")}
               </div>
               {statusAlert.message}
             </div>
@@ -139,7 +143,7 @@ export const StudentLogin = ({ setCurrentView }) => {
           {/* Email or Register Number */}
           <div className="form-group" style={{ marginBottom: "1.75rem" }}>
             <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-              Email Address or Register Number *
+              {t("login.email_or_reg", null, "Email Address or Register Number *")}
             </label>
             <input
               type="text"
@@ -155,7 +159,9 @@ export const StudentLogin = ({ setCurrentView }) => {
           {/* Password */}
           <div className="form-group" style={{ marginBottom: "2rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.65rem" }}>
-              <label className="form-label" style={{ margin: 0, fontSize: "0.925rem" }}>Password *</label>
+              <label className="form-label" style={{ margin: 0, fontSize: "0.925rem" }}>
+                {t("login.password_label", null, "Password *")}
+              </label>
               <button
                 type="button"
                 onClick={() => {
@@ -172,7 +178,7 @@ export const StudentLogin = ({ setCurrentView }) => {
                   fontWeight: 600
                 }}
               >
-                Forgot Password?
+                {t("login.forgot_password", null, "Forgot Password?")}
               </button>
             </div>
             <input
@@ -192,14 +198,16 @@ export const StudentLogin = ({ setCurrentView }) => {
             className="btn btn-primary btn-lg"
             style={{ width: "100%", padding: "1rem 2rem", fontSize: "1.05rem" }}
           >
-            {loading ? "Authenticating..." : "Sign In to Exam Portal"}
+            {loading 
+              ? t("login.authenticating", null, "Authenticating...") 
+              : t("login.sign_in_student", null, "Sign In to Exam Portal")}
           </button>
         </form>
 
         {/* Quick Fill Demo Test States */}
         <div style={{ marginTop: "2.25rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border-color)" }}>
           <div style={{ fontSize: "0.8rem", textTransform: "uppercase", fontWeight: 700, color: "var(--text-subtle)", marginBottom: "0.85rem", textAlign: "center", letterSpacing: "0.05em" }}>
-            Test Different Account States:
+            {t("login.test_states", null, "Test Different Account States:")}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
             <button
@@ -209,7 +217,7 @@ export const StudentLogin = ({ setCurrentView }) => {
               style={{ fontSize: "0.825rem", padding: "0.6rem 0.75rem", color: "#34d399", borderColor: "rgba(16, 185, 129, 0.35)" }}
               title="Test Approved Student"
             >
-              Approved
+              {t("login.approved_btn", null, "Approved")}
             </button>
             <button
               type="button"
@@ -218,7 +226,7 @@ export const StudentLogin = ({ setCurrentView }) => {
               style={{ fontSize: "0.825rem", padding: "0.6rem 0.75rem", color: "#fbbf24", borderColor: "rgba(245, 158, 11, 0.35)" }}
               title="Test Pending Student"
             >
-              Pending
+              {t("login.pending_btn", null, "Pending")}
             </button>
             <button
               type="button"
@@ -227,14 +235,14 @@ export const StudentLogin = ({ setCurrentView }) => {
               style={{ fontSize: "0.825rem", padding: "0.6rem 0.75rem", color: "#fb7185", borderColor: "rgba(244, 63, 94, 0.35)" }}
               title="Test Rejected Student"
             >
-              Rejected
+              {t("login.rejected_btn", null, "Rejected")}
             </button>
           </div>
         </div>
 
         {/* Registration Link */}
         <div style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.95rem", color: "var(--text-muted)" }}>
-          New student?{" "}
+          {t("login.new_student", null, "New student?")}{" "}
           <button
             onClick={() => setCurrentView("student_register")}
             style={{
@@ -247,7 +255,7 @@ export const StudentLogin = ({ setCurrentView }) => {
               fontSize: "0.95rem"
             }}
           >
-            Create an Account Here
+            {t("login.create_account_link", null, "Create an Account Here")}
           </button>
         </div>
       </div>
@@ -259,7 +267,9 @@ export const StudentLogin = ({ setCurrentView }) => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <HelpCircle size={22} color="#818cf8" />
-                <h3 style={{ fontSize: "1.25rem", fontWeight: 800 }}>Reset Password</h3>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: 800 }}>
+                  {t("login.reset_password_modal", null, "Reset Password")}
+                </h3>
               </div>
               <button
                 onClick={() => setShowForgotModal(false)}
@@ -270,12 +280,14 @@ export const StudentLogin = ({ setCurrentView }) => {
             </div>
 
             <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.55, marginBottom: "1.5rem" }}>
-              Enter your registered Email or Student Register Number to request a password reset from the administrator.
+              {t("login.reset_password_desc", null, "Enter your registered Email or Student Register Number to request a password reset from the administrator.")}
             </p>
 
             <form onSubmit={handleForgotSubmit}>
               <div className="form-group" style={{ marginBottom: "1.5rem" }}>
-                <label className="form-label">Email or Register Number</label>
+                <label className="form-label">
+                  {t("login.email_or_reg", null, "Email Address or Register Number *")}
+                </label>
                 <input
                   type="text"
                   required
@@ -295,10 +307,10 @@ export const StudentLogin = ({ setCurrentView }) => {
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowForgotModal(false)}>
-                  Close
+                  {t("common.close", null, "Close")}
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Submit Request
+                  {t("login.submit_reset", null, "Submit Request")}
                 </button>
               </div>
             </form>

@@ -23,10 +23,13 @@ import { StatusBadge } from "../components/StatusBadge";
 import { StatCard } from "../components/StatCard";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
+import { translateContent } from "../services/translator";
 
 export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "available" }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { language, t } = useLanguage();
 
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +76,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
     try {
       setLaunchingExam(true);
       const res = await api.startExamSession(activeExamModal.id);
-      showToast("Candidate verified. Commencing proctored assessment...", "success");
+      showToast(t("toast.exam_started", null, "Candidate verified. Commencing proctored assessment..."), "success");
       setActiveExamModal(null);
 
       if (onEnterExamHall) {
@@ -91,7 +94,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
       <div className="page-container" style={{ textAlign: "center", paddingTop: "5rem" }}>
         <RefreshCw size={36} className="spin-animation" style={{ margin: "0 auto 1rem", color: "#818cf8" }} />
         <div style={{ fontSize: "1.1rem", color: "var(--text-muted)" }}>
-          Loading Student Portal...
+          {t("common.loading", null, "Loading...")}
         </div>
       </div>
     );
@@ -139,7 +142,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: "1.85rem", fontWeight: 800, color: "var(--text-main)", margin: 0 }}>
-                Welcome back, {user?.name}!
+                {t("student_dashboard.welcome", { name: user?.name }, `Welcome back, ${user?.name}!`)}
               </h1>
               <StatusBadge status={user?.approval_status || "APPROVED"} />
             </div>
@@ -158,7 +161,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", background: "rgba(16, 185, 129, 0.14)", border: "1px solid rgba(16, 185, 129, 0.35)", padding: "0.75rem 1.35rem", borderRadius: "var(--radius-md)" }}>
           <ShieldCheck size={20} color="#34d399" />
           <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#6ee7b7" }}>
-            Candidate Status: Verified & Eligible
+            {t("student_dashboard.verified_eligible", null, "Candidate Status: Verified & Eligible")}
           </span>
         </div>
       </div>
@@ -166,28 +169,28 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
       {/* KPI Stats */}
       <div className="dashboard-stats-grid">
         <StatCard
-          title="Scheduled Assessments"
+          title={t("student_dashboard.kpi_scheduled", null, "Scheduled Assessments")}
           value={upcomingExams.length}
           icon={Calendar}
           color="indigo"
-          subtitle="Enrolled Papers"
-          badgeText="Active Access"
+          subtitle={t("student_dashboard.kpi_scheduled_sub", null, "Enrolled Papers")}
+          badgeText={t("student_dashboard.kpi_scheduled_badge", null, "Active Access")}
         />
         <StatCard
-          title="Evaluated Scorecards"
+          title={t("student_dashboard.kpi_evaluated", null, "Evaluated Scorecards")}
           value={completedResults.filter(r => r.is_approved).length}
           icon={Award}
           color="emerald"
-          subtitle="Examiner Approved & Released"
-          badgeText="Published"
+          subtitle={t("student_dashboard.kpi_evaluated_sub", null, "Examiner Approved & Released")}
+          badgeText={t("student_dashboard.kpi_evaluated_badge", null, "Published")}
         />
         <StatCard
-          title="Pending Faculty Review"
+          title={t("student_dashboard.kpi_pending", null, "Pending Faculty Review")}
           value={completedResults.filter(r => !r.is_approved).length}
           icon={Clock}
           color="amber"
-          subtitle="Under Examiner Audit"
-          badgeText="In Review"
+          subtitle={t("student_dashboard.kpi_pending_sub", null, "Under Examiner Audit")}
+          badgeText={t("student_dashboard.kpi_pending_badge", null, "In Review")}
         />
       </div>
 
@@ -198,7 +201,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
           className={`btn ${activeTab === "available" ? "btn-primary" : "btn-secondary"}`}
           style={{ padding: "0.75rem 1.6rem", fontSize: "0.95rem" }}
         >
-          <Calendar size={18} /> Available Examinations ({upcomingExams.length})
+          <Calendar size={18} /> {t("student_dashboard.tab_available", { count: upcomingExams.length }, `Available Examinations (${upcomingExams.length})`)}
         </button>
 
         <button
@@ -206,7 +209,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
           className={`btn ${activeTab === "results" ? "btn-primary" : "btn-secondary"}`}
           style={{ padding: "0.75rem 1.6rem", fontSize: "0.95rem" }}
         >
-          <Award size={18} /> My Assessment Results & Scorecards ({completedResults.length})
+          <Award size={18} /> {t("student_dashboard.tab_results", { count: completedResults.length }, `My Assessment Results & Scorecards (${completedResults.length})`)}
         </button>
       </div>
 
@@ -219,9 +222,11 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
-                  <h2 style={{ fontSize: "1.6rem", fontWeight: 800, margin: 0 }}>Available & Upcoming Examinations</h2>
+                  <h2 style={{ fontSize: "1.6rem", fontWeight: 800, margin: 0 }}>
+                    {t("student_dashboard.available_title", null, "Available & Upcoming Examinations")}
+                  </h2>
                   <p style={{ fontSize: "0.95rem", color: "var(--text-subtle)", marginTop: "0.4rem", margin: 0 }}>
-                    Select an examination to launch AI proctoring verification and start your assessment session
+                    {t("student_dashboard.available_sub", null, "Select an examination to launch AI proctoring verification and start your assessment session")}
                   </p>
                 </div>
                 <button
@@ -232,7 +237,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                   title="Check for newly published exams by faculty"
                 >
                   <RefreshCw size={15} className={refreshing ? "spin-animation" : ""} />
-                  {refreshing ? "Refreshing..." : "Refresh Exams"}
+                  {refreshing ? t("student_dashboard.refreshing", null, "Refreshing...") : t("student_dashboard.refresh_exams", null, "Refresh Exams")}
                 </button>
               </div>
 
@@ -240,17 +245,17 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                 <div className="glass-card" style={{ padding: "4rem 2.5rem", textAlign: "center", color: "var(--text-muted)" }}>
                   <Calendar size={48} color="#6366f1" style={{ margin: "0 auto 1.25rem" }} />
                   <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)", marginBottom: "0.5rem" }}>
-                    No Examinations Available Right Now
+                    {t("student_dashboard.no_exams_title", null, "No Examinations Available Right Now")}
                   </h3>
                   <p style={{ fontSize: "0.925rem", maxWidth: "460px", margin: "0 auto 1.5rem", color: "var(--text-subtle)" }}>
-                    When faculty examiners create and publish examinations, they will appear here immediately for you to take.
+                    {t("student_dashboard.no_exams_desc", null, "When faculty examiners create and publish examinations, they will appear here immediately for you to take.")}
                   </p>
                   <button
                     onClick={() => loadDashboard(true)}
                     className="btn btn-primary"
                     style={{ padding: "0.65rem 1.4rem" }}
                   >
-                    <RefreshCw size={15} /> Check for New Exams
+                    <RefreshCw size={15} /> {t("student_dashboard.check_new_exams", null, "Check for New Exams")}
                   </button>
                 </div>
               ) : (
@@ -265,57 +270,63 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                           <div>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
                               <span className="badge badge-type" style={{ fontSize: "0.8rem" }}>
-                                {exam.code || `EXAM-#${exam.id}`} &bull; {exam.subject}
+                                {exam.code || `EXAM-#${exam.id}`} &bull; {exam[`subject_${language}`] || translateContent(exam.subject, language)}
                               </span>
                               {exam.creator_name && (
                                 <span style={{ fontSize: "0.825rem", color: "var(--text-subtle)", background: "rgba(30, 41, 59, 0.6)", padding: "0.2rem 0.6rem", borderRadius: "6px", border: "1px solid var(--border-color)" }}>
-                                  Faculty: <strong style={{ color: "#c7d2fe" }}>{exam.creator_name}</strong>
+                                  {t("student_dashboard.faculty_label", null, "Faculty:")} <strong style={{ color: "#c7d2fe" }}>{exam.creator_name}</strong>
                                 </span>
                               )}
                             </div>
                             <h3 style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--text-main)", margin: 0 }}>
-                              {exam.title}
+                              {exam[`title_${language}`] || translateContent(exam.title, language)}
                             </h3>
                           </div>
                           
                           {isSubmitted ? (
                             isApproved ? (
                               <span className="badge badge-result-approved" style={{ fontSize: "0.85rem", padding: "0.45rem 1rem" }}>
-                                <CheckCircle2 size={15} /> Official Result Released
+                                <CheckCircle2 size={15} /> {t("student_dashboard.official_result_released", null, "Official Result Released")}
                               </span>
                             ) : (
                               <span className="badge badge-under-review" style={{ fontSize: "0.85rem", padding: "0.45rem 1rem" }}>
-                                <Clock size={15} /> Preliminary &bull; Under Faculty Review
+                                <Clock size={15} /> {t("student_dashboard.preliminary_under_review", null, "Preliminary • Under Faculty Review")}
                               </span>
                             )
                           ) : (
                             <span className="badge badge-approved" style={{ fontSize: "0.85rem", padding: "0.45rem 1rem", background: "rgba(16, 185, 129, 0.15)", color: "#34d399", border: "1px solid rgba(16, 185, 129, 0.4)" }}>
-                              <CheckCircle2 size={14} /> Available to Take
+                              <CheckCircle2 size={14} /> {t("student_dashboard.available_to_take", null, "Available to Take")}
                             </span>
                           )}
                         </div>
 
                         <p style={{ fontSize: "0.95rem", color: "var(--text-muted)", marginBottom: "1.75rem", lineHeight: 1.65 }}>
-                          {exam.description}
+                          {exam[`description_${language}`] || translateContent(exam.description, language)}
                         </p>
 
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1.5rem", marginBottom: "2rem", background: "rgba(15, 23, 42, 0.55)", padding: "1.35rem 1.75rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
                           <div>
-                            <span style={{ fontSize: "0.825rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.3rem", fontWeight: 600 }}>Questions</span>
+                            <span style={{ fontSize: "0.825rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.3rem", fontWeight: 600 }}>
+                              {t("student_dashboard.questions_count_label", null, "Questions")}
+                            </span>
                             <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-main)" }}>
-                              {exam.total_questions !== undefined ? exam.total_questions : (exam.questions_count || 0)} Questions
+                              {exam.total_questions !== undefined ? exam.total_questions : (exam.questions_count || 0)} {t("common.questions", null, "Questions")}
                             </span>
                           </div>
                           <div>
-                            <span style={{ fontSize: "0.825rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.3rem", fontWeight: 600 }}>Duration</span>
+                            <span style={{ fontSize: "0.825rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.3rem", fontWeight: 600 }}>
+                              {t("student_dashboard.duration_label", null, "Duration")}
+                            </span>
                             <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-main)" }}>
-                              {exam.duration_minutes} Mins
+                              {exam.duration_minutes} {t("common.mins", null, "Mins")}
                             </span>
                           </div>
                           <div>
-                            <span style={{ fontSize: "0.825rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.3rem", fontWeight: 600 }}>Total Marks</span>
+                            <span style={{ fontSize: "0.825rem", color: "var(--text-subtle)", display: "block", marginBottom: "0.3rem", fontWeight: 600 }}>
+                              {t("student_dashboard.total_marks_label", null, "Total Marks")}
+                            </span>
                             <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "#34d399" }}>
-                              {exam.total_marks} Marks
+                              {exam.total_marks} {t("common.marks", null, "Marks")}
                             </span>
                           </div>
                         </div>
@@ -327,10 +338,10 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                               <Clock size={20} color="#fbbf24" style={{ flexShrink: 0 }} />
                               <div>
                                 <span style={{ fontSize: "0.9rem", fontWeight: 800, color: "#fbbf24", display: "block" }}>
-                                  Preliminary Score Recorded
+                                  {t("student_dashboard.preliminary_score_recorded", null, "Preliminary Score Recorded")}
                                 </span>
                                 <span style={{ fontSize: "0.825rem", color: "#fef3c7" }}>
-                                  Full question breakdown & solutions unlock upon faculty examiner approval.
+                                  {t("student_dashboard.preliminary_score_desc", null, "Full question breakdown & solutions unlock upon faculty examiner approval.")}
                                 </span>
                               </div>
                             </div>
@@ -339,7 +350,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                                 {exam.obtained_marks} / {exam.total_marks} ({exam.percentage}%)
                               </span>
                               <span className="badge badge-under-review" style={{ fontSize: "0.75rem" }}>
-                                IN REVIEW
+                                {t("common.under_review", null, "Under Review")}
                               </span>
                             </div>
                           </div>
@@ -352,19 +363,19 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                               <CheckCircle2 size={20} color="#34d399" />
                               <div>
                                 <span style={{ fontSize: "0.9rem", fontWeight: 800, color: "#6ee7b7", display: "block" }}>
-                                  Examiner Approved & Released
+                                  {t("student_dashboard.examiner_approved_released", null, "Examiner Approved & Released")}
                                 </span>
                                 <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>
-                                  Official scorecard with full answer explanations is now available.
+                                  {t("student_dashboard.examiner_approved_desc", null, "Official scorecard with full answer explanations is now available.")}
                                 </span>
                               </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                               <span style={{ fontSize: "1.25rem", fontWeight: 800, color: "#34d399", fontFamily: "var(--font-mono)" }}>
-                                Score: {exam.obtained_marks} / {exam.total_marks} ({exam.percentage}%)
+                                {exam.obtained_marks} / {exam.total_marks} ({exam.percentage}%)
                               </span>
                               <span className={`badge ${exam.passed ? "badge-approved" : "badge-rejected"}`}>
-                                {exam.passed ? "PASSED" : "FAILED"}
+                                {exam.passed ? t("common.passed", null, "PASSED") : t("common.failed", null, "FAILED")}
                               </span>
                             </div>
                           </div>
@@ -373,10 +384,10 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1.25rem" }}>
                           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                             <span className="badge" style={{ background: "rgba(6, 182, 212, 0.14)", color: "#67e8f9", fontSize: "0.8rem", padding: "0.35rem 0.75rem" }}>
-                              <Video size={14} /> AI Vision Proctoring
+                              <Video size={14} /> {t("student_dashboard.vision_proctoring", null, "AI Vision Proctoring")}
                             </span>
                             <span className="badge" style={{ background: "rgba(168, 85, 247, 0.14)", color: "#d8b4fe", fontSize: "0.8rem", padding: "0.35rem 0.75rem" }}>
-                              <Sparkles size={14} /> Auto-Grading
+                              <Sparkles size={14} /> {t("student_dashboard.auto_grading", null, "Auto-Grading")}
                             </span>
                           </div>
 
@@ -387,7 +398,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                                 className="btn btn-emerald"
                                 style={{ padding: "0.7rem 1.6rem" }}
                               >
-                                <Eye size={16} /> View Scorecard & Solutions
+                                <Eye size={16} /> {t("student_dashboard.view_scorecard_solutions", null, "View Scorecard & Solutions")}
                               </button>
                             ) : (
                               <button
@@ -395,7 +406,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                                 className="btn btn-secondary"
                                 style={{ padding: "0.7rem 1.6rem" }}
                               >
-                                <Clock size={16} /> View Preliminary Score
+                                <Clock size={16} /> {t("student_dashboard.view_preliminary_score", null, "View Preliminary Score")}
                               </button>
                             )
                           ) : (
@@ -404,7 +415,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                               className="btn btn-primary"
                               style={{ padding: "0.7rem 1.6rem" }}
                             >
-                              Enter Exam Hall <ArrowRight size={16} />
+                              {t("student_dashboard.enter_exam_hall", null, "Enter Exam Hall")} <ArrowRight size={16} />
                             </button>
                           )}
                         </div>
@@ -417,18 +428,22 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
           ) : (
             <div>
               <div style={{ marginBottom: "2rem" }}>
-                <h2 style={{ fontSize: "1.6rem", fontWeight: 800 }}>My Assessment Results & Scorecards</h2>
+                <h2 style={{ fontSize: "1.6rem", fontWeight: 800 }}>
+                  {t("student_dashboard.results_title", null, "My Assessment Results & Scorecards")}
+                </h2>
                 <p style={{ fontSize: "0.95rem", color: "var(--text-subtle)", marginTop: "0.4rem" }}>
-                  Examination scorecards and proctoring telemetry records
+                  {t("student_dashboard.results_sub", null, "Examination scorecards and proctoring telemetry records")}
                 </p>
               </div>
 
               {completedResults.length === 0 ? (
                 <div className="glass-card" style={{ padding: "4rem 2.5rem", textAlign: "center", color: "var(--text-muted)" }}>
                   <Award size={48} color="#64748b" style={{ margin: "0 auto 1.25rem" }} />
-                  <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)" }}>No completed exams yet</h3>
+                  <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)" }}>
+                    {t("student_dashboard.no_completed_title", null, "No completed exams yet")}
+                  </h3>
                   <p style={{ fontSize: "0.925rem", marginTop: "0.45rem" }}>
-                    Complete an exam from the Available Examinations tab to track your submissions and scorecards.
+                    {t("student_dashboard.no_completed_desc", null, "Complete an exam from the Available Examinations tab to track your submissions and scorecards.")}
                   </p>
                 </div>
               ) : (
@@ -438,20 +453,20 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.55rem" }}>
                           <span className="badge badge-type">
-                            {res.exam_subject}
+                            {translateContent(res.exam_subject, language)}
                           </span>
                           {res.is_approved ? (
                             <span className="badge badge-result-approved">
-                              <CheckCircle2 size={13} /> Approved & Released
+                              <CheckCircle2 size={13} /> {t("student_dashboard.examiner_approved_released", null, "Approved & Released")}
                             </span>
                           ) : (
                             <span className="badge badge-under-review">
-                              <Clock size={13} /> Preliminary &bull; Under Review
+                              <Clock size={13} /> {t("student_dashboard.preliminary_under_review", null, "Preliminary • Under Review")}
                             </span>
                           )}
                         </div>
                         <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "var(--text-main)" }}>
-                          {res.exam_title}
+                          {translateContent(res.exam_title, language)}
                         </h3>
                         <div style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "0.55rem", display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
                           <span>Submitted: {new Date(res.submitted_at).toLocaleDateString()}</span>
@@ -469,11 +484,11 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                           </div>
                           {res.is_approved ? (
                             <span className={`badge ${res.passed ? "badge-approved" : "badge-rejected"}`} style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                              {res.percentage}% ({res.passed ? "PASSED" : "FAILED"})
+                              {res.percentage}% ({res.passed ? t("common.passed", null, "PASSED") : t("common.failed", null, "FAILED")})
                             </span>
                           ) : (
                             <span className="badge badge-under-review" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                              {res.percentage}% (PRELIMINARY)
+                              {res.percentage}% ({t("common.under_review", null, "PRELIMINARY")})
                             </span>
                           )}
                         </div>
@@ -484,9 +499,9 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                           style={{ padding: "0.7rem 1.4rem", display: "flex", alignItems: "center", gap: "0.6rem" }}
                         >
                           {res.is_approved ? (
-                            <><Eye size={16} /> Detailed Solutions</>
+                            <><Eye size={16} /> {t("student_dashboard.view_scorecard_solutions", null, "Detailed Solutions")}</>
                           ) : (
-                            <><Clock size={16} /> Preliminary View</>
+                            <><Clock size={16} /> {t("student_dashboard.view_preliminary_score", null, "Preliminary View")}</>
                           )}
                         </button>
                       </div>
@@ -503,20 +518,20 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
           {/* Instructions Card */}
           <div className="glass-card" style={{ padding: "2rem 2.25rem" }}>
             <h3 style={{ fontSize: "1.1rem", fontWeight: 800, margin: "0 0 1.25rem", display: "flex", alignItems: "center", gap: "0.7rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-main)" }}>
-              <FileText size={20} color="#818cf8" /> Candidate Guidelines
+              <FileText size={20} color="#818cf8" /> {t("student_dashboard.candidate_guidelines_title", null, "Candidate Guidelines")}
             </h3>
             <ul style={{ paddingLeft: "1.25rem", fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.65, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <li>Webcam & microphone must remain active throughout the examination session.</li>
-              <li>Handwritten diagram responses can be captured with webcam snapshot.</li>
-              <li>AI proctoring alerts trigger automatically upon tab-switching or multi-person presence.</li>
-              <li>Official results are published after examiner audit and sign-off.</li>
+              <li>{t("student_dashboard.guideline_1", null, "Webcam & microphone must remain active throughout the examination session.")}</li>
+              <li>{t("student_dashboard.guideline_2", null, "Handwritten diagram responses can be captured with webcam snapshot.")}</li>
+              <li>{t("student_dashboard.guideline_3", null, "AI proctoring alerts trigger automatically upon tab-switching or multi-person presence.")}</li>
+              <li>{t("student_dashboard.guideline_4", null, "Official results are published after examiner audit and sign-off.")}</li>
             </ul>
           </div>
 
           {/* Institutional Bulletins */}
           <div className="glass-card" style={{ padding: "2rem 2.25rem" }}>
             <h3 style={{ fontSize: "1.1rem", fontWeight: 800, margin: "0 0 1.25rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-main)" }}>
-              Exam Cell Notices
+              {t("student_dashboard.exam_cell_notices_title", null, "Exam Cell Notices")}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               {dashboardData?.announcements?.map((ann) => (
@@ -561,7 +576,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                 <Video size={28} />
               </div>
               <h3 style={{ fontSize: "1.3rem", fontWeight: 800 }}>
-                AI Proctoring System Check
+                {t("student_dashboard.system_check_title", null, "AI Proctoring System Check")}
               </h3>
               <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
                 {activeExamModal.title}
@@ -573,23 +588,29 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                     <Video size={18} color="#34d399" />
-                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>Webcam Vision Feed</span>
+                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>
+                      {t("student_dashboard.webcam_feed", null, "Webcam Vision Feed")}
+                    </span>
                   </div>
-                  <span className="badge badge-approved">Connected & Verified</span>
+                  <span className="badge badge-approved">{t("student_dashboard.connected_verified", null, "Connected & Verified")}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                     <Mic size={18} color="#34d399" />
-                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>Microphone Audio Calibrator</span>
+                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>
+                      {t("student_dashboard.mic_calibrator", null, "Microphone Audio Calibrator")}
+                    </span>
                   </div>
-                  <span className="badge badge-approved">Calibrated</span>
+                  <span className="badge badge-approved">{t("student_dashboard.calibrated", null, "Calibrated")}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                     <ShieldCheck size={18} color="#34d399" />
-                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>Anti-Cheating Window Lockdown</span>
+                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>
+                      {t("student_dashboard.lockdown_ready", null, "Anti-Cheating Window Lockdown")}
+                    </span>
                   </div>
-                  <span className="badge badge-approved">Ready</span>
+                  <span className="badge badge-approved">{t("student_dashboard.ready", null, "Ready")}</span>
                 </div>
               </div>
             </div>
@@ -600,14 +621,16 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                 className="btn btn-secondary"
                 onClick={() => setActiveExamModal(null)}
               >
-                Cancel
+                {t("common.cancel", null, "Cancel")}
               </button>
               <button
                 disabled={launchingExam}
                 className="btn btn-emerald btn-lg"
                 onClick={handleCommenceSession}
               >
-                {launchingExam ? "Launching Hall..." : "Commence Examination Now"}
+                {launchingExam 
+                  ? t("student_dashboard.launching_hall", null, "Launching Hall...") 
+                  : t("student_dashboard.commence_now", null, "Commence Examination Now")}
               </button>
             </div>
           </div>

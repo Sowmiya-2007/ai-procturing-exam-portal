@@ -1,19 +1,21 @@
 import React, { useState } from "react";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
+import { useLanguage } from "../context/LanguageContext";
 
 export const ConfirmModal = ({
   isOpen,
   title,
   message,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
   type = "primary", // primary, emerald, rose
   showReasonInput = false,
-  reasonPlaceholder = "Provide a rejection reason...",
+  reasonPlaceholder,
   onConfirm,
   onCancel,
   loading = false
 }) => {
+  const { t } = useLanguage();
   const [reason, setReason] = useState("");
 
   if (!isOpen) return null;
@@ -27,6 +29,10 @@ export const ConfirmModal = ({
     if (type === "rose") return "btn btn-rose";
     return "btn btn-primary";
   };
+
+  const finalConfirmText = confirmText || t("common.confirm", null, "Confirm");
+  const finalCancelText = cancelText || t("common.cancel", null, "Cancel");
+  const finalPlaceholder = reasonPlaceholder || t("modals.rejection_reason_placeholder", null, "Provide a rejection reason...");
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -43,7 +49,7 @@ export const ConfirmModal = ({
               </div>
             )}
             <h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--text-main)" }}>
-              {title}
+              {title || t("modals.confirm_title", null, "Confirm Action")}
             </h3>
           </div>
           <button
@@ -60,11 +66,11 @@ export const ConfirmModal = ({
 
         {showReasonInput && (
           <div className="form-group" style={{ marginBottom: "1.5rem" }}>
-            <label className="form-label">Rejection Reason (Optional / Sent to Student):</label>
+            <label className="form-label">{t("modals.rejection_reason_label", null, "Rejection Reason (Optional / Sent to Student):")}</label>
             <textarea
               rows={3}
               className="form-control"
-              placeholder={reasonPlaceholder}
+              placeholder={finalPlaceholder}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               style={{ resize: "vertical" }}
@@ -74,13 +80,14 @@ export const ConfirmModal = ({
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
           <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={loading}>
-            {cancelText}
+            {finalCancelText}
           </button>
           <button type="button" className={getButtonClass()} onClick={handleConfirm} disabled={loading}>
-            {loading ? "Processing..." : confirmText}
+            {loading ? t("common.processing", null, "Processing...") : finalConfirmText}
           </button>
         </div>
       </div>
     </div>
   );
 };
+

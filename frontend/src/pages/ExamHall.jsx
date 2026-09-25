@@ -24,45 +24,113 @@ import {
   Sparkles,
   Info,
   RefreshCw,
-  LogOut
+  LogOut,
+  AlertCircle,
+  ScanFace
 } from "lucide-react";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
+import { initFaceLandmarker, analyzeVideoFrame, createAudioMonitor } from "../services/proctorVision";
+import { translateContent, getLocalizedOptionLabel, formatQuestionNumLabel } from "../services/translator";
+import { LanguageSelector } from "../components/LanguageSelector";
 
 export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { language, t } = useLanguage();
 
-  // Session & Exam State
+  // Lifecycle & Session State
   const [loading, setLoading] = useState(true);
   const [sessionData, setSessionData] = useState(null);
   const [currentQIndex, setCurrentQIndex] = useState(0);
-  
-  // Answers state: { [questionId]: { selected_option_ids, text_answer, image_url } }
+
+  // Answers State: { [questionId]: { selected_option_ids, text_answer, image_url } }
   const [answers, setAnswers] = useState({});
   const [markedForReview, setMarkedForReview] = useState(new Set());
   const [saveStatus, setSaveStatus] = useState("saved"); // "saved", "saving", "error"
-  const [filterType, setFilterType] = useState("all"); // "all", "answered", "unanswered", "marked"
 
-  // Proctoring & Security State
+  // Real Camera Hardware State
+  const [cameraStatus, setCameraStatus] = useState("CAMERA_STARTING"); // "CAMERA_STARTING", "CAMERA_ACTIVE", "CAMERA_NO_VIDEO", "CAMERA_PERMISSION_DENIED", "CAMERA_ERROR", "CAMERA_STOPPED"
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
-  const [audioLevel, setAudioLevel] = useState(15);
-  const [gazeStatus, setGazeStatus] = useState("Center / Focused");
+  const [cameraError, setCameraError] = useState(null);
+  const [videoDims, setVideoDims] = useState({ w: 0, h: 0 });
+  const [videoReadyState, setVideoReadyState] = useState(0);
+  const [videoTrackLive, setVideoTrackLive] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+
+  // Real AI Vision Engine State
+  const [aiModelLoaded, setAiModelLoaded] = useState(false);
+  const [modelError, setModelError] = useState(null);
+  const [framesProcessed, setFramesProcessed] = useState(0);
+  const [lastDetectionTime, setLastDetectionTime] = useState(null);
+
+  // Strictly Data-Driven Telemetry State (NO hardcoded fake defaults!)
+  const [stableFaceCount, setStableFaceCount] = useState(null); // null = "Checking...", 0 = Absent, 1 = Single, 2+ = Multiple
+  const [stableFaceBox, setStableFaceBox] = useState(null);
+  const [stableGazeStatus, setStableGazeStatus] = useState("UNKNOWN");
+  const [stableHeadStatus, setStableHeadStatus] = useState("UNKNOWN");
+  const [isFaceAbsent, setIsFaceAbsent] = useState(true);
+  const [isMultipleFaces, setIsMultipleFaces] = useState(false);
+  const [isGazeAway, setIsGazeAway] = useState(false);
+
+  // Fullscreen Lockdown State
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenError, setFullscreenError] = useState(null);
+
+  // Violation Alert Tracking
   const [violationsCount, setViolationsCount] = useState(0);
   const [lastViolationMsg, setLastViolationMsg] = useState("");
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmSubmitModal, setConfirmSubmitModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Time tracking
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(3600);
+
+  // Refs
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const landmarkerRef = useRef(null);
+  const audioMonitorRef = useRef(null);
   const autosaveTimeoutRef = useRef(null);
+  const inferenceFrameIdRef = useRef(null);
+  const lastInferenceTimeRef = useRef(0);
 
-  // 1. Initialize Active Exam Session
+  // State Machine Temporal Confirmation Frame Counters
+  const consecutiveNormalFramesRef = useRef(0);
+  const consecutiveAbsentFramesRef = useRef(0);
+  const consecutiveMultipleFramesRef = useRef(0);
+  const consecutiveGazeAwayFramesRef = useRef(0);
+
+  // Incident & Cooldown Trackers (Prevents event spam)
+  const lastAbsentEventTimeRef = useRef(0);
+  const lastMultipleEventTimeRef = useRef(0);
+  const lastGazeEventTimeRef = useRef(0);
+  const fullscreenExitIncidentRef = useRef(false);
+  const tabSwitchIncidentRef = useRef(false);
+  const lastWindowBlurTimeRef = useRef(0);
+  const lastClipboardEventTimeRef = useRef(0);
+
+  // 1. Centralized Proctor Violation Logger
+  const logSecurityViolation = useCallback((eventType, message) => {
+    setViolationsCount(prev => prev + 1);
+    setLastViolationMsg(message);
+    const localizedMessage = translateContent(message, language);
+    showToast(`SECURITY ALERT: ${localizedMessage}`, "error");
+
+    if (sessionToken) {
+      api.logProctorEvent(sessionToken, {
+        event_type: eventType,
+        details: message
+      }).catch(err => {
+        console.warn("Failed to log proctor event to server:", err);
+      });
+    }
+  }, [sessionToken, showToast, language]);
+
+  // 2. Initialize Active Exam Session
   useEffect(() => {
     let isMounted = true;
     const loadSession = async () => {
@@ -73,7 +141,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
 
         setSessionData(data);
 
-        // Populate existing saved answers and flagged states
+        // Populate existing answers and flagged states
         const initialAnswers = {};
         const initialFlags = new Set();
         if (data.existing_answers) {
@@ -88,14 +156,14 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
         setAnswers(initialAnswers);
         setMarkedForReview(initialFlags);
 
-        // Calculate initial remaining time directly from server remaining_seconds
+        // Calculate initial remaining time from server
         if (data.remaining_seconds !== undefined && data.remaining_seconds !== null) {
           setTimeLeftSeconds(data.remaining_seconds);
         } else if (data.started_at && data.duration_minutes) {
           const startTime = new Date(data.started_at).getTime();
-          const durationMs = data.duration_minutes * 60 * 1000;
+          const durationSecs = data.duration_minutes * 60;
           const elapsedSecs = Math.floor((Date.now() - startTime) / 1000);
-          const remaining = Math.max(0, (data.duration_minutes * 60) - elapsedSecs);
+          const remaining = Math.max(0, durationSecs - elapsedSecs);
           setTimeLeftSeconds(remaining);
         } else {
           setTimeLeftSeconds((data.duration_minutes || 60) * 60);
@@ -114,140 +182,454 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
     return () => {
       isMounted = false;
     };
-  }, [sessionToken]);
-
-  // 2. Hardware Webcam & Microphone Setup
-  useEffect(() => {
-    let streamInstance = null;
-    let audioInterval = null;
-
-    const startMedia = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: true
-        });
-        streamInstance = stream;
-        setCameraStream(stream);
-        setCameraActive(true);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
-        // Simulated audio decibel variation
-        audioInterval = setInterval(() => {
-          const randLevel = Math.floor(Math.random() * 25) + 10;
-          setAudioLevel(randLevel);
-        }, 1200);
-
-      } catch (err) {
-        console.warn("Webcam not directly accessible, enabling Simulated Proctoring HUD:", err);
-        setCameraActive(false);
-      }
-    };
-
-    startMedia();
-
-    return () => {
-      if (streamInstance) {
-        streamInstance.getTracks().forEach(track => track.stop());
-      }
-      if (audioInterval) clearInterval(audioInterval);
-    };
-  }, []);
-
-  // Sync video ref when cameraActive changes
-  useEffect(() => {
-    if (cameraActive && cameraStream && videoRef.current) {
-      videoRef.current.srcObject = cameraStream;
-    }
-  }, [cameraActive, cameraStream]);
-
-  // 3. Automated Proctoring Vision & Gaze Tracking Simulator
-  useEffect(() => {
-    const gazeInterval = setInterval(() => {
-      // 95% centered, 5% random momentary gaze shift
-      const rand = Math.random();
-      if (rand < 0.05) {
-        const warningTypes = [
-          "Gaze Divergence: Looking Away",
-          "Candidate Head Tilted",
-          "Attention Shift Detected"
-        ];
-        const randomWarn = warningTypes[Math.floor(Math.random() * warningTypes.length)];
-        setGazeStatus(randomWarn);
-        
-        // Log proctor event quietly
-        api.logProctorEvent(sessionToken, {
-          event_type: "GAZE_AWAY",
-          details: randomWarn
-        }).catch(() => {});
-      } else {
-        setGazeStatus("Center / Focused on Exam");
-      }
-    }, 4500);
-
-    return () => clearInterval(gazeInterval);
-  }, [sessionToken]);
-
-  // 4. Security Lockdown: Tab Switch & Window Blur Detection
-  const handleSecurityViolation = useCallback((eventType, message) => {
-    setViolationsCount(prev => prev + 1);
-    setLastViolationMsg(message);
-    showToast(`SECURITY ALERT: ${message}`, "error");
-
-    api.logProctorEvent(sessionToken, {
-      event_type: eventType,
-      details: message
-    }).catch(() => {});
   }, [sessionToken, showToast]);
 
+  // 3. Hardware Webcam & Web Audio Initialization
+  const initHardware = useCallback(async () => {
+    try {
+      setCameraStatus("CAMERA_STARTING");
+      setCameraError(null);
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user"
+        },
+        audio: true
+      });
+
+      console.log("Camera stream:", stream);
+      console.log("Video tracks:", stream?.getVideoTracks());
+
+      const videoTracks = stream.getVideoTracks();
+      if (!videoTracks || videoTracks.length === 0) {
+        setCameraStatus("CAMERA_NO_VIDEO");
+        setCameraActive(false);
+        setVideoTrackLive(false);
+        return null;
+      }
+
+      const activeTrack = videoTracks[0];
+      setVideoTrackLive(activeTrack.readyState === "live");
+
+      activeTrack.onended = () => {
+        console.warn("Webcam video track stopped/disconnected");
+        setCameraStatus("CAMERA_STOPPED");
+        setCameraActive(false);
+        setVideoTrackLive(false);
+        setStableFaceCount(0);
+        setIsFaceAbsent(true);
+      };
+
+      setCameraStream(stream);
+      setCameraActive(true);
+      setCameraStatus("CAMERA_ACTIVE");
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+
+      // Initialize real Web Audio API level monitor
+      if (audioMonitorRef.current) {
+        audioMonitorRef.current.stop();
+      }
+      audioMonitorRef.current = createAudioMonitor(stream, (level) => {
+        setAudioLevel(level);
+      });
+
+      return stream;
+    } catch (err) {
+      console.error("Camera access error:", err);
+      setCameraActive(false);
+      setVideoTrackLive(false);
+      let errMsg = "Camera access is required for proctored examination.";
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        setCameraStatus("CAMERA_PERMISSION_DENIED");
+        errMsg = "Camera permission was denied. Please allow camera access in browser settings.";
+      } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+        setCameraStatus("CAMERA_NO_VIDEO");
+        errMsg = "No camera found. Please connect a webcam.";
+      } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+        setCameraStatus("CAMERA_ERROR");
+        errMsg = "Camera is currently in use by another application.";
+      } else {
+        setCameraStatus("CAMERA_ERROR");
+      }
+      setCameraError(errMsg);
+      showToast(errMsg, "error");
+      return null;
+    }
+  }, [showToast]);
+
+  // 4. Load MediaPipe AI Vision Model
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        handleSecurityViolation(
-          "TAB_SWITCH", 
-          "Tab switch detected! Leaving the exam window is recorded as a violation."
-        );
+    let isMounted = true;
+    const loadVision = async () => {
+      try {
+        const landmarker = await initFaceLandmarker();
+        if (isMounted) {
+          landmarkerRef.current = landmarker;
+          setAiModelLoaded(true);
+          setModelError(null);
+        }
+      } catch (err) {
+        console.error("MediaPipe FaceLandmarker load error:", err);
+        if (isMounted) {
+          setAiModelLoaded(false);
+          setModelError(err.message || "Failed to load MediaPipe vision model");
+        }
       }
     };
 
-    const handleWindowBlur = () => {
-      handleSecurityViolation(
-        "WINDOW_BLUR", 
-        "Focus lost! Switching applications is prohibited during examination."
-      );
+    loadVision();
+    initHardware();
+
+    return () => {
+      isMounted = false;
     };
+  }, [initHardware]);
+
+  // Reliable Video Attachment Callback Ref
+  const attachVideoRef = useCallback((node) => {
+    videoRef.current = node;
+    if (node && cameraStream) {
+      if (node.srcObject !== cameraStream) {
+        node.srcObject = cameraStream;
+      }
+      node.play().catch(() => {});
+    }
+  }, [cameraStream]);
+
+  useEffect(() => {
+    if (cameraStream && videoRef.current) {
+      if (videoRef.current.srcObject !== cameraStream) {
+        videoRef.current.srcObject = cameraStream;
+      }
+      videoRef.current.play().catch(() => {});
+    }
+  }, [cameraStream, loading]);
+
+  // 5. Continuous Real-Time AI Proctoring Inference Loop (with Temporal State Machine)
+  useEffect(() => {
+    let isMounted = true;
+
+    const runInferenceLoop = () => {
+      if (!isMounted) return;
+
+      const now = performance.now();
+      // Run inference every ~100ms (10 FPS)
+      if (now - lastInferenceTimeRef.current >= 100) {
+        lastInferenceTimeRef.current = now;
+
+        const videoEl = videoRef.current;
+
+        // If camera stream is not active or video is not ready:
+        if (!cameraActive || !videoEl || !videoEl.srcObject) {
+          if (cameraStatus === "CAMERA_ACTIVE") {
+            setCameraStatus("CAMERA_STOPPED");
+          }
+          setVideoReadyState(0);
+          setVideoDims({ w: 0, h: 0 });
+          setStableFaceCount(0);
+          setIsFaceAbsent(true);
+          setIsMultipleFaces(false);
+          setStableHeadStatus("Not detected");
+          setStableGazeStatus("Not detected");
+          inferenceFrameIdRef.current = requestAnimationFrame(runInferenceLoop);
+          return;
+        }
+
+        if (videoEl.paused || videoEl.readyState < 2) {
+          videoEl.play().catch(() => {});
+        }
+
+        setVideoReadyState(videoEl.readyState);
+
+        // Verify video dimensions and readyState
+        if (
+          videoEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+          videoEl.videoWidth > 0 &&
+          videoEl.videoHeight > 0
+        ) {
+          if (videoDims.w !== videoEl.videoWidth || videoDims.h !== videoEl.videoHeight) {
+            setVideoDims({ w: videoEl.videoWidth, h: videoEl.videoHeight });
+          }
+
+          // Real MediaPipe detection on actual video frame
+          const analysis = analyzeVideoFrame(videoEl, landmarkerRef.current, now);
+
+          setFramesProcessed(prev => prev + 1);
+          setLastDetectionTime(Date.now());
+
+          // ==============================================================
+          // STATE MACHINE CONFIRMATION FOR FACE DETECTION
+          // ==============================================================
+
+          // Case A: Exactly 1 Face Detected (Normal Candidate State)
+          if (analysis.faceCount === 1) {
+            consecutiveNormalFramesRef.current++;
+            consecutiveAbsentFramesRef.current = 0;
+            consecutiveMultipleFramesRef.current = 0;
+
+            if (consecutiveNormalFramesRef.current >= 2) {
+              setStableFaceCount(1);
+              setIsFaceAbsent(false);
+              setIsMultipleFaces(false);
+              setStableFaceBox(analysis.faceBoundingBox);
+              setStableGazeStatus(analysis.gazeStatus);
+              setStableHeadStatus(analysis.headStatus);
+            }
+          }
+          // Case B: 0 Faces Detected (Face Absence Check with 2.0s confirmation)
+          else if (analysis.faceCount === 0) {
+            consecutiveAbsentFramesRef.current++;
+            consecutiveNormalFramesRef.current = 0;
+            consecutiveMultipleFramesRef.current = 0;
+
+            // Require 20 consecutive frames (~2.0 seconds sustained) to confirm absence
+            if (consecutiveAbsentFramesRef.current >= 20) {
+              setStableFaceCount(0);
+              setIsFaceAbsent(true);
+              setIsMultipleFaces(false);
+              setStableFaceBox(null);
+              setStableGazeStatus("Not detected");
+              setStableHeadStatus("Not detected");
+
+              // Debounced backend incident logging with 15-second cooldown
+              if (now - lastAbsentEventTimeRef.current > 15000) {
+                lastAbsentEventTimeRef.current = now;
+                logSecurityViolation(
+                  "FACE_ABSENT",
+                  "Face not detected. Candidate must remain continuously visible in front of camera."
+                );
+              }
+            }
+          }
+          // Case C: 2+ Faces Detected (Multiple Faces Check with 1.5s confirmation)
+          else if (analysis.faceCount >= 2) {
+            consecutiveMultipleFramesRef.current++;
+            consecutiveNormalFramesRef.current = 0;
+            consecutiveAbsentFramesRef.current = 0;
+
+            // Require 15 consecutive frames (~1.5 seconds sustained) to confirm multiple people
+            if (consecutiveMultipleFramesRef.current >= 15) {
+              setStableFaceCount(analysis.faceCount);
+              setIsMultipleFaces(true);
+              setIsFaceAbsent(false);
+              setStableFaceBox(analysis.faceBoundingBox);
+              setStableGazeStatus("Multiple Faces");
+              setStableHeadStatus("Multiple Faces");
+
+              // Debounced backend incident logging with 15-second cooldown
+              if (now - lastMultipleEventTimeRef.current > 15000) {
+                lastMultipleEventTimeRef.current = now;
+                logSecurityViolation(
+                  "MULTIPLE_FACES",
+                  `Multiple people (${analysis.faceCount} faces) detected. Only the candidate may be visible.`
+                );
+              }
+            }
+          }
+
+          // Case D: Gaze & Head Orientation Check (with 2.5s confirmation)
+          if (analysis.faceCount === 1 && analysis.isLookingAway) {
+            consecutiveGazeAwayFramesRef.current++;
+            if (consecutiveGazeAwayFramesRef.current >= 25) {
+              setIsGazeAway(true);
+              if (now - lastGazeEventTimeRef.current > 15000) {
+                lastGazeEventTimeRef.current = now;
+                const evtType = analysis.headPose !== "CENTER" ? "HEAD_TURN" : "GAZE_AWAY";
+                const reason = analysis.headPose !== "CENTER" 
+                  ? `Head turned (${analysis.headStatus})` 
+                  : `Looking away from screen (${analysis.gazeStatus})`;
+                logSecurityViolation(
+                  evtType,
+                  `Warning: ${reason}. Please focus on your examination screen.`
+                );
+              }
+            }
+          } else {
+            consecutiveGazeAwayFramesRef.current = 0;
+            setIsGazeAway(false);
+          }
+        } else {
+          setCameraStatus(cameraActive ? "CAMERA_NO_VIDEO" : "CAMERA_STOPPED");
+          setStableFaceCount(0);
+          setIsFaceAbsent(true);
+          setStableHeadStatus("Not available");
+          setStableGazeStatus("Not available");
+        }
+      }
+
+      inferenceFrameIdRef.current = requestAnimationFrame(runInferenceLoop);
+    };
+
+    inferenceFrameIdRef.current = requestAnimationFrame(runInferenceLoop);
+
+    return () => {
+      isMounted = false;
+      if (inferenceFrameIdRef.current) {
+        cancelAnimationFrame(inferenceFrameIdRef.current);
+      }
+    };
+  }, [cameraActive, cameraStatus, logSecurityViolation]);
+
+  // 6. Fullscreen Lockdown & Incident Management
+  useEffect(() => {
+    // Attempt initial fullscreen request
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
 
     const handleFullscreenChange = () => {
       const isCurrentlyFull = !!document.fullscreenElement;
       setIsFullscreen(isCurrentlyFull);
-      if (!isCurrentlyFull && !loading) {
-        handleSecurityViolation(
-          "WINDOW_BLUR", 
-          "Exited Full-Screen mode. Return to full screen to maintain integrity."
+
+      if (!isCurrentlyFull) {
+        // Fullscreen was exited (e.g. by pressing ESC or minimizing)
+        if (!fullscreenExitIncidentRef.current) {
+          fullscreenExitIncidentRef.current = true;
+          logSecurityViolation(
+            "FULLSCREEN_EXIT",
+            "Warning: Full-screen mode was exited. Full-screen mode is required during the examination."
+          );
+        }
+      } else {
+        // Fullscreen was restored
+        fullscreenExitIncidentRef.current = false;
+        setFullscreenError(null);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (!tabSwitchIncidentRef.current) {
+          tabSwitchIncidentRef.current = true;
+          logSecurityViolation(
+            "TAB_SWITCH",
+            "Warning: Switching tabs or minimizing browser is not allowed during the exam."
+          );
+        }
+      } else {
+        tabSwitchIncidentRef.current = false;
+      }
+    };
+
+    const handleWindowBlur = () => {
+      const now = Date.now();
+      if (now - lastWindowBlurTimeRef.current > 4000) {
+        lastWindowBlurTimeRef.current = now;
+        logSecurityViolation(
+          "WINDOW_BLUR",
+          "Focus lost! Switching applications is prohibited during examination."
         );
       }
     };
 
+    // Clipboard & Right-Click Security Guards
+    const handleCopy = (e) => {
+      e.preventDefault();
+      showToast(t("exam_hall.tab_switch_alert", null, "Copying exam content is disabled."), "warning");
+      const now = Date.now();
+      if (now - lastClipboardEventTimeRef.current > 4000) {
+        lastClipboardEventTimeRef.current = now;
+        logSecurityViolation("COPY_ATTEMPT", "Candidate attempted to copy content from the examination screen.");
+      }
+    };
+
+    const handlePaste = (e) => {
+      e.preventDefault();
+      showToast(t("exam_hall.tab_switch_alert", null, "Pasting content into the exam is disabled."), "warning");
+      const now = Date.now();
+      if (now - lastClipboardEventTimeRef.current > 4000) {
+        lastClipboardEventTimeRef.current = now;
+        logSecurityViolation("PASTE_ATTEMPT", "Candidate attempted to paste content into examination.");
+      }
+    };
+
+    const handleCut = (e) => {
+      e.preventDefault();
+      showToast(t("exam_hall.tab_switch_alert", null, "Cutting content from exam is disabled."), "warning");
+      const now = Date.now();
+      if (now - lastClipboardEventTimeRef.current > 4000) {
+        lastClipboardEventTimeRef.current = now;
+        logSecurityViolation("CUT_ATTEMPT", "Candidate attempted to cut content from examination.");
+      }
+    };
+
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      showToast(t("exam_hall.tab_switch_alert", null, "Right-click context menu is disabled during examination."), "warning");
+      const now = Date.now();
+      if (now - lastClipboardEventTimeRef.current > 4000) {
+        lastClipboardEventTimeRef.current = now;
+        logSecurityViolation("RIGHT_CLICK_ATTEMPT", "Candidate attempted to open browser context menu.");
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        const k = e.key.toLowerCase();
+        if (k === "c" || k === "v" || k === "x") {
+          e.preventDefault();
+          showToast(`Ctrl+${k.toUpperCase()} is disabled during examination.`, "warning");
+          return;
+        }
+
+        if (k === "a") {
+          const target = e.target;
+          const isInputField = target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT");
+          if (!isInputField) {
+            e.preventDefault();
+            showToast("Select-all on exam questions is disabled.", "warning");
+            return;
+          }
+        }
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("copy", handleCopy);
+    document.addEventListener("paste", handlePaste);
+    document.addEventListener("cut", handleCut);
+    document.addEventListener("contextmenu", handleContextMenu);
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("copy", handleCopy);
+      document.removeEventListener("paste", handlePaste);
+      document.removeEventListener("cut", handleCut);
+      document.removeEventListener("contextmenu", handleContextMenu);
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleSecurityViolation, loading]);
+  }, [logSecurityViolation, showToast, t]);
 
-  // 5. Timer Countdown & Auto-Submit
+  // Request Fullscreen via User Interaction
+  const handleEnterFullscreen = async () => {
+    setFullscreenError(null);
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (err) {
+      console.warn("Fullscreen request error:", err);
+      setFullscreenError("Unable to enter full-screen mode. Please click the button again.");
+    }
+  };
+
+  // 7. Countdown Timer & Auto-Submit
   useEffect(() => {
     if (loading || timeLeftSeconds <= 0) return;
 
     const timer = setInterval(() => {
-      setTimeLeftSeconds(prev => {
+      setTimeLeftSeconds((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
           handleAutoSubmit();
@@ -265,19 +647,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
     await handleFinalSubmit();
   };
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.warn("Fullscreen request failed:", err);
-      });
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      }
-    }
-  };
-
-  // 6. Autosave Answer Handler
+  // 8. Autosave Answer Handler
   const triggerAutoSave = (questionId, newAnswerData) => {
     setSaveStatus("saving");
     if (autosaveTimeoutRef.current) {
@@ -313,7 +683,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
     triggerAutoSave(questionId, updated);
   };
 
-  // 7. Question Navigation & Review Tagging
+  // 9. Question Navigation & Review Tagging
   const toggleMarkForReview = (questionId) => {
     setMarkedForReview(prev => {
       const next = new Set(prev);
@@ -324,7 +694,6 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
         next.add(questionId);
       }
       
-      // Persist flag state to backend
       const curAns = answers[questionId] || {};
       api.saveSessionAnswer(sessionToken, {
         question_id: questionId,
@@ -344,10 +713,10 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
       text_answer: "",
       image_url: null
     });
-    showToast("Response cleared for this question", "info");
+    showToast(t("exam_hall.clear_response", null, "Response cleared for this question"), "info");
   };
 
-  // 8. Snapshot Capture for Handwritten Image Questions
+  // 10. Snapshot Capture for Handwritten Diagram Questions
   const captureWebcamSnapshot = (questionId) => {
     if (videoRef.current && canvasRef.current && cameraActive) {
       const video = videoRef.current;
@@ -359,9 +728,9 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
       const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
 
       updateAnswer(questionId, { image_url: dataUrl });
-      showToast("Handwritten diagram photo captured via webcam!", "success");
+      showToast(t("exam_hall.attached_diagram", null, "Handwritten diagram photo captured via webcam!"), "success");
     } else {
-      showToast("Live webcam stream is not active. Please click 'Choose File / Upload Diagram' below to attach your image.", "warning");
+      showToast("Live webcam stream is not active. Please click 'Choose File / Upload Diagram' below.", "warning");
     }
   };
 
@@ -382,12 +751,39 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
     reader.readAsDataURL(file);
   };
 
-  // 9. Final Submission Handler
+  // 11. Resource Cleanup
+  const cleanupAllResources = useCallback(() => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+    }
+    if (audioMonitorRef.current) {
+      audioMonitorRef.current.stop();
+    }
+    if (inferenceFrameIdRef.current) {
+      cancelAnimationFrame(inferenceFrameIdRef.current);
+    }
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, [cameraStream]);
+
+  // Clean up on component unmount
+  useEffect(() => {
+    return () => {
+      cleanupAllResources();
+    };
+  }, [cleanupAllResources]);
+
+  // 12. Final Submission Handler
   const handleFinalSubmit = async () => {
     try {
       setSubmitting(true);
       const result = await api.submitExamSession(sessionToken, { final_confirmation: true });
-      showToast("Examination submitted successfully! Generating scorecard...", "success");
+      cleanupAllResources();
+      showToast(t("toast.exam_submitted", null, "Examination submitted successfully! Generating scorecard..."), "success");
       if (onExamSubmitted) {
         onExamSubmitted(result);
       }
@@ -415,36 +811,20 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
       <div style={{ minHeight: "100vh", background: "#0b0f19", display: "flex", alignItems: "center", justifyContent: "center", color: "#818cf8" }}>
         <div style={{ textAlign: "center" }}>
           <RefreshCw size={36} className="spin-animation" style={{ margin: "0 auto 1rem" }} />
-          <h2 style={{ fontSize: "1.3rem", fontWeight: 700 }}>Initializing AI-Proctored Hall...</h2>
+          <h2 style={{ fontSize: "1.3rem", fontWeight: 700 }}>{t("exam_hall.loading_hall", null, "Entering Examination Hall...")}</h2>
           <p style={{ fontSize: "0.85rem", color: "#9ca3af", marginTop: "0.5rem" }}>
-            Establishing encrypted vision stream and locking examination environment
+            {t("exam_hall.loading_hall_sub", null, "Establishing encrypted vision stream and locking examination environment")}
           </p>
         </div>
       </div>
     );
   }
 
+  // Active Examination Workspace & HUD (Questions Displayed Immediately)
   const questions = sessionData.questions || [];
   const currentQ = questions[currentQIndex];
   const currentAnswer = currentQ ? answers[currentQ.question_id] || {} : {};
 
-  // Status helper for question palette
-  const getQuestionStatus = (q) => {
-    const ans = answers[q.question_id];
-    const isAnswered = ans && (
-      (ans.selected_option_ids && ans.selected_option_ids.length > 0) ||
-      (ans.text_answer && ans.text_answer.trim().length > 0) ||
-      (ans.image_url && ans.image_url.length > 0)
-    );
-    const isMarked = markedForReview.has(q.question_id);
-
-    if (isMarked && isAnswered) return "marked_answered";
-    if (isMarked) return "marked";
-    if (isAnswered) return "answered";
-    return "unanswered";
-  };
-
-  // Summary counts
   const answeredCount = questions.filter(q => {
     const ans = answers[q.question_id];
     return ans && (
@@ -455,23 +835,110 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
   }).length;
 
   const markedCount = markedForReview.size;
-  const unansweredCount = questions.length - answeredCount;
 
-  // Question filtering
-  const filteredQuestions = questions.filter((q, idx) => {
-    const status = getQuestionStatus(q);
-    if (filterType === "answered") return status === "answered" || status === "marked_answered";
-    if (filterType === "unanswered") return status === "unanswered";
-    if (filterType === "marked") return status === "marked" || status === "marked_answered";
-    return true;
-  });
+  // Determine Vision Engine Status strictly from actual pipeline
+  const isVisionActive = aiModelLoaded && cameraActive && videoDims.w > 0 && framesProcessed > 0;
+  const visionStatusLabel = isVisionActive
+    ? "● Active (MediaPipe FaceLandmarker)"
+    : (modelError ? "✕ Model Error" : (!cameraActive ? "✕ Camera Unavailable" : "● Loading..."));
+
+  // Translated Title & Subject (direct DB multilingual column or dictionary fallback)
+  const displayExamTitle = sessionData[`exam_title_${language}`] || translateContent(sessionData.exam_title, language);
+  const displayExamSubject = sessionData[`exam_subject_${language}`] || translateContent(sessionData.exam_subject, language);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#090d16", color: "#f3f4f6", display: "flex", flexDirection: "column", userSelect: "none" }}>
+    <div style={{ minHeight: "100vh", background: "#090d16", color: "#f3f4f6", display: "flex", flexDirection: "column", userSelect: "none", position: "relative" }}>
       {/* Hidden canvas for video snapshot capture */}
       <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      {/* Top Security Banner */}
+      {/* =====================================================================
+          PROMINENT FULL-SCREEN MODE REQUIRED MODAL OVERLAY (ON ESC / EXIT)
+          ===================================================================== */}
+      {!isFullscreen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            background: "rgba(10, 15, 30, 0.96)",
+            backdropFilter: "blur(16px)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+            textAlign: "center"
+          }}
+        >
+          <div
+            className="glass-card"
+            style={{
+              maxWidth: "520px",
+              width: "100%",
+              padding: "2.75rem",
+              background: "rgba(15, 23, 42, 0.95)",
+              border: "2px solid #ef4444",
+              boxShadow: "0 0 40px rgba(239, 68, 68, 0.35)",
+              borderRadius: "var(--radius-lg)"
+            }}
+          >
+            <div
+              style={{
+                width: "68px",
+                height: "68px",
+                borderRadius: "50%",
+                background: "rgba(239, 68, 68, 0.15)",
+                border: "2px solid #ef4444",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 1.5rem",
+                animation: "pulse 2s infinite"
+              }}
+            >
+              <AlertTriangle size={36} color="#ef4444" />
+            </div>
+
+            <h2 style={{ fontSize: "1.6rem", fontWeight: 800, color: "#fff", marginBottom: "0.75rem" }}>
+              {t("exam_hall.fullscreen_modal_title", null, "FULL-SCREEN MODE REQUIRED")}
+            </h2>
+
+            <p style={{ fontSize: "0.95rem", color: "#cbd5e1", lineHeight: 1.6, marginBottom: "1.75rem" }}>
+              {t("exam_hall.fullscreen_modal_desc", null, "Please return to full-screen mode to continue the examination. The exam workspace and question inputs remain locked while outside full-screen.")}
+            </p>
+
+            {fullscreenError && (
+              <div style={{ background: "rgba(239, 68, 68, 0.2)", border: "1px solid #ef4444", padding: "0.6rem 1rem", borderRadius: "6px", color: "#fca5a5", fontSize: "0.825rem", marginBottom: "1.5rem" }}>
+                {fullscreenError}
+              </div>
+            )}
+
+            <button
+              onClick={handleEnterFullscreen}
+              className="btn btn-emerald btn-lg"
+              style={{
+                width: "100%",
+                padding: "0.95rem 1.75rem",
+                fontSize: "1.05rem",
+                fontWeight: 800,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.6rem",
+                boxShadow: "0 0 20px rgba(16, 185, 129, 0.4)",
+                cursor: "pointer"
+              }}
+            >
+              <Maximize size={20} /> {t("exam_hall.enter_fullscreen_btn", null, "ENTER FULL SCREEN")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Top Header & Timer Bar */}
       <header
         style={{
           background: "rgba(15, 23, 42, 0.95)",
@@ -506,10 +973,10 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
 
           <div>
             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#fff" }}>
-              {sessionData.exam_title}
+              {displayExamTitle}
             </div>
             <div style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-              Subject: {sessionData.exam_subject} &bull; Total Marks: {sessionData.total_marks}
+              {t("common.department", null, "Subject")}: {displayExamSubject} &bull; {t("student_dashboard.total_marks_label", null, "Total Marks")}: {sessionData.total_marks}
             </div>
           </div>
         </div>
@@ -533,51 +1000,46 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
         >
           <Clock size={18} color={timeLeftSeconds < 300 ? "#f87171" : timeLeftSeconds < 600 ? "#fbbf24" : "#818cf8"} />
           <div style={{ textAlign: "center" }}>
-            <span style={{ fontSize: "0.7rem", color: "#9ca3af", display: "block", lineHeight: 1 }}>TIME REMAINING</span>
+            <span style={{ fontSize: "0.7rem", color: "#9ca3af", display: "block", lineHeight: 1 }}>
+              {t("exam_hall.time_remaining", null, "TIME REMAINING")}
+            </span>
             <span style={{ fontSize: "1.15rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: timeLeftSeconds < 300 ? "#f87171" : "#fff" }}>
               {formatTime(timeLeftSeconds)}
             </span>
           </div>
         </div>
 
-        {/* Right: Security & Actions */}
+        {/* Right: Language Selector & Submit Button */}
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          {/* Universal Language Selector directly on Exam Header */}
+          <LanguageSelector variant="navbar" />
+
           {/* Autosave Status */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", color: saveStatus === "saving" ? "#fbbf24" : "#34d399" }}>
             {saveStatus === "saving" ? (
               <>
                 <RefreshCw size={13} className="spin-animation" />
-                <span>Saving...</span>
+                <span>{t("exam_hall.saving_cloud", null, "Saving...")}</span>
               </>
             ) : (
               <>
                 <CheckCircle2 size={13} />
-                <span>Saved to cloud</span>
+                <span>{t("exam_hall.saved_to_cloud", null, "Saved to cloud")}</span>
               </>
             )}
           </div>
-
-          <button
-            onClick={toggleFullscreen}
-            className="btn btn-secondary"
-            style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem" }}
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen Mode"}
-          >
-            {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-            <span>{isFullscreen ? "Full" : "Fullscreen"}</span>
-          </button>
 
           <button
             onClick={() => setConfirmSubmitModal(true)}
             className="btn btn-emerald"
             style={{ padding: "0.45rem 1.25rem", fontSize: "0.85rem", fontWeight: 700 }}
           >
-            Finish & Submit Exam
+            {t("exam_hall.finish_submit", null, "Finish & Submit Exam")}
           </button>
         </div>
       </header>
 
-      {/* Security Violation Alert Bar */}
+      {/* Security Violation Alert Banner */}
       {violationsCount > 0 && (
         <div
           style={{
@@ -594,11 +1056,11 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             <ShieldAlert size={16} color="#ef4444" />
             <span>
-              <strong>Integrity Alert:</strong> {lastViolationMsg || "Security warning recorded."}
+              <strong>{t("exam_hall.integrity_alert", null, "Integrity Alert:")}</strong> {translateContent(lastViolationMsg, language) || t("toast.proctor_warning", null, "Security warning recorded.")}
             </span>
           </div>
           <span className="badge badge-rejected" style={{ fontSize: "0.7rem", padding: "0.2rem 0.6rem" }}>
-            Violations Logged: {violationsCount}
+            {t("exam_hall.violations_logged", { count: violationsCount }, `Violations Logged: ${violationsCount}`)}
           </span>
         </div>
       )}
@@ -623,20 +1085,20 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                       fontSize: "0.9rem"
                     }}
                   >
-                    Question {currentQIndex + 1} of {questions.length}
+                    {formatQuestionNumLabel(currentQIndex + 1, questions.length, language)}
                   </span>
 
                   <span className="badge badge-type">
-                    {currentQ.question_type.replace("_", " ")}
+                    {currentQ.question_type === "MCQ" ? t("status.mcq_single", null, "MCQ (Single)") : currentQ.question_type === "MULTI_SELECT" ? t("status.multi_select", null, "Multi-Select") : currentQ.question_type === "SHORT_ANSWER" ? t("status.short_answer", null, "Short Answer") : currentQ.question_type === "LONG_ANSWER" ? t("status.long_answer", null, "Long Answer") : t("status.image_upload", null, "Image / Diagram")}
                   </span>
 
                   <span className="badge" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#6ee7b7" }}>
-                    {currentQ.marks} Marks
+                    {t("exam_hall.marks_count", { marks: currentQ.marks }, `${currentQ.marks} Marks`)}
                   </span>
 
                   {currentQ.negative_marks > 0 && (
                     <span className="badge badge-rejected" style={{ fontSize: "0.7rem" }}>
-                      -{currentQ.negative_marks} Neg Mark
+                      {t("exam_hall.neg_mark_badge", { marks: currentQ.negative_marks }, `-${currentQ.negative_marks} Neg Mark`)}
                     </span>
                   )}
                 </div>
@@ -654,7 +1116,7 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                     }}
                   >
                     <Bookmark size={14} />
-                    <span>{markedForReview.has(currentQ.question_id) ? "Marked for Review" : "Mark for Review"}</span>
+                    <span>{markedForReview.has(currentQ.question_id) ? t("exam_hall.marked_for_review", null, "Marked for Review") : t("exam_hall.mark_for_review", null, "Mark for Review")}</span>
                   </button>
 
                   <button
@@ -663,19 +1125,19 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                     style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem", color: "#f87171" }}
                     title="Clear your answer for this question"
                   >
-                    Clear Response
+                    {t("exam_hall.clear_response", null, "Clear Response")}
                   </button>
                 </div>
               </div>
 
-              {/* Question Text */}
+              {/* Question Text (Fully Translated) */}
               <div style={{ marginBottom: "2.25rem" }}>
                 <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#f8fafc", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>
-                  {currentQ.question_text}
+                  {currentQ[`question_text_${language}`] || translateContent(currentQ.question_text, language)}
                 </h2>
               </div>
 
-              {/* Dynamic Answer Area depending on 5 Question Types */}
+              {/* Dynamic Answer Input Area (Fully Translated) */}
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 
                 {/* 1. MCQ (Single Choice) */}
@@ -683,7 +1145,8 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                   <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {currentQ.options.map((opt, oIdx) => {
                       const isSelected = (currentAnswer.selected_option_ids || [])[0] === opt.id;
-                      const letter = String.fromCharCode(65 + oIdx);
+                      const letter = getLocalizedOptionLabel(oIdx, language);
+                      const displayOptionText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
 
                       return (
                         <div
@@ -695,8 +1158,8 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                             gap: "1.25rem",
                             padding: "1.2rem 1.5rem",
                             borderRadius: "var(--radius-md)",
-                            background: isSelected ? "rgba(99, 102, 241, 0.22)" : "rgba(30, 41, 59, 0.45)",
-                            border: `1.5px solid ${isSelected ? "#6366f1" : "rgba(255, 255, 255, 0.08)"}`,
+                            background: isSelected ? "rgba(99, 102, 241, 0.22)" : "rgba(30, 41, 59, 0.5)",
+                            border: isSelected ? "2px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.08)",
                             cursor: "pointer",
                             transition: "all 0.2s ease"
                           }}
@@ -706,85 +1169,83 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                               width: "36px",
                               height: "36px",
                               borderRadius: "50%",
-                              background: isSelected ? "#6366f1" : "rgba(255, 255, 255, 0.08)",
-                              color: isSelected ? "#fff" : "var(--text-muted)",
+                              background: isSelected ? "#6366f1" : "rgba(255, 255, 255, 0.05)",
+                              color: isSelected ? "#fff" : "#94a3b8",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              fontWeight: 700,
+                              fontWeight: 800,
                               fontSize: "0.95rem"
                             }}
                           >
                             {letter}
                           </div>
-                          <div style={{ flex: 1, fontSize: "1rem", color: isSelected ? "#fff" : "#cbd5e1" }}>
-                            {opt.option_text}
-                          </div>
-                          {isSelected && <Check size={20} color="#818cf8" />}
+                          <span style={{ fontSize: "1rem", color: isSelected ? "#ffffff" : "#cbd5e1", fontWeight: isSelected ? 600 : 400 }}>
+                            {displayOptionText}
+                          </span>
                         </div>
                       );
                     })}
                   </div>
                 )}
 
-                {/* 2. MULTI_SELECT (Multiple Choice Checkboxes) */}
+                {/* 2. MULTI_SELECT (Multiple Correct Options) */}
                 {currentQ.question_type === "MULTI_SELECT" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                    <div style={{ fontSize: "0.8rem", color: "#a5b4fc", marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                      <Info size={14} /> Select all applicable options:
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <div style={{ fontSize: "0.85rem", color: "#93c5fd", marginBottom: "0.5rem" }}>
+                      {t("exam_hall.multi_select_hint", null, "Select all correct choices that apply.")}
                     </div>
                     {currentQ.options.map((opt, oIdx) => {
                       const selectedList = currentAnswer.selected_option_ids || [];
                       const isSelected = selectedList.includes(opt.id);
-                      const letter = String.fromCharCode(65 + oIdx);
+                      const letter = getLocalizedOptionLabel(oIdx, language);
+                      const displayOptionText = opt[`option_text_${language}`] || translateContent(opt.option_text, language);
 
-                      const handleToggle = () => {
-                        let nextList;
+                      const toggleOption = () => {
+                        let updated;
                         if (isSelected) {
-                          nextList = selectedList.filter(id => id !== opt.id);
+                          updated = selectedList.filter(id => id !== opt.id);
                         } else {
-                          nextList = [...selectedList, opt.id];
+                          updated = [...selectedList, opt.id];
                         }
-                        updateAnswer(currentQ.question_id, { selected_option_ids: nextList });
+                        updateAnswer(currentQ.question_id, { selected_option_ids: updated });
                       };
 
                       return (
                         <div
                           key={opt.id}
-                          onClick={handleToggle}
+                          onClick={toggleOption}
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: "1rem",
-                            padding: "1rem 1.25rem",
+                            gap: "1.25rem",
+                            padding: "1.2rem 1.5rem",
                             borderRadius: "var(--radius-md)",
-                            background: isSelected ? "rgba(99, 102, 241, 0.2)" : "rgba(30, 41, 59, 0.4)",
-                            border: `1.5px solid ${isSelected ? "#6366f1" : "rgba(255, 255, 255, 0.08)"}`,
+                            background: isSelected ? "rgba(168, 85, 247, 0.22)" : "rgba(30, 41, 59, 0.5)",
+                            border: isSelected ? "2px solid #a855f7" : "1px solid rgba(255, 255, 255, 0.08)",
                             cursor: "pointer",
                             transition: "all 0.2s ease"
                           }}
                         >
                           <div
                             style={{
-                              width: "24px",
-                              height: "24px",
-                              borderRadius: "4px",
-                              background: isSelected ? "#6366f1" : "rgba(255, 255, 255, 0.08)",
-                              border: isSelected ? "none" : "1px solid rgba(255, 255, 255, 0.2)",
+                              width: "36px",
+                              height: "36px",
+                              borderRadius: "8px",
+                              background: isSelected ? "#a855f7" : "rgba(255, 255, 255, 0.05)",
+                              color: isSelected ? "#fff" : "#94a3b8",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              color: "#fff"
+                              fontWeight: 800,
+                              fontSize: "0.95rem"
                             }}
                           >
-                            {isSelected && <Check size={16} />}
+                            {isSelected ? "✓" : letter}
                           </div>
-                          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: isSelected ? "#818cf8" : "var(--text-muted)" }}>
-                            Option {letter}:
-                          </div>
-                          <div style={{ flex: 1, fontSize: "0.95rem", color: isSelected ? "#fff" : "#cbd5e1" }}>
-                            {opt.option_text}
-                          </div>
+                          <span style={{ fontSize: "1rem", color: isSelected ? "#ffffff" : "#cbd5e1", fontWeight: isSelected ? 600 : 400 }}>
+                            {displayOptionText}
+                          </span>
                         </div>
                       );
                     })}
@@ -793,104 +1254,82 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
 
                 {/* 3. SHORT_ANSWER */}
                 {currentQ.question_type === "SHORT_ANSWER" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", flex: 1 }}>
-                    <label style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                      Type your concise answer below (auto-evaluated by AI):
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                    <label style={{ fontSize: "0.85rem", color: "var(--text-subtle)", marginBottom: "0.5rem", fontWeight: 600 }}>
+                      {t("exam_hall.concise_answer_label", null, "Type concise answer (auto-graded with AI keyword evaluation):")}
                     </label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Enter concise answer..."
+                    <textarea
+                      rows={5}
+                      className="form-control"
+                      placeholder={t("exam_hall.concise_placeholder", null, "Enter concise answer...")}
+                      style={{ flex: 1, fontSize: "1rem", lineHeight: 1.6, padding: "1.25rem", background: "rgba(15, 23, 42, 0.8)", resize: "none" }}
                       value={currentAnswer.text_answer || ""}
                       onChange={(e) => updateAnswer(currentQ.question_id, { text_answer: e.target.value })}
-                      style={{
-                        padding: "1rem",
-                        fontSize: "1rem",
-                        background: "rgba(15, 23, 42, 0.9)",
-                        borderColor: "rgba(99, 102, 241, 0.3)"
-                      }}
                     />
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textAlign: "right" }}>
-                      {(currentAnswer.text_answer || "").length} characters entered
-                    </div>
                   </div>
                 )}
 
                 {/* 4. LONG_ANSWER */}
                 {currentQ.question_type === "LONG_ANSWER" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <label style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                        Write your comprehensive answer below:
-                      </label>
-                      <span style={{ fontSize: "0.75rem", color: "#818cf8" }}>
-                        {(currentAnswer.text_answer || "").split(/\s+/).filter(Boolean).length} words
-                      </span>
-                    </div>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                    <label style={{ fontSize: "0.85rem", color: "var(--text-subtle)", marginBottom: "0.5rem", fontWeight: 600 }}>
+                      {t("exam_hall.essay_label", null, "Write your comprehensive answer below:")}
+                    </label>
                     <textarea
                       rows={10}
-                      className="form-input"
-                      placeholder="Write comprehensive essay or code formulation..."
+                      className="form-control"
+                      placeholder={t("exam_hall.essay_placeholder", null, "Write comprehensive essay or code formulation...")}
+                      style={{ flex: 1, fontSize: "0.975rem", lineHeight: 1.65, padding: "1.25rem", background: "rgba(15, 23, 42, 0.8)", resize: "none" }}
                       value={currentAnswer.text_answer || ""}
                       onChange={(e) => updateAnswer(currentQ.question_id, { text_answer: e.target.value })}
-                      style={{
-                        padding: "1rem",
-                        fontSize: "0.95rem",
-                        lineHeight: 1.6,
-                        background: "rgba(15, 23, 42, 0.9)",
-                        borderColor: "rgba(99, 102, 241, 0.3)",
-                        resize: "vertical"
-                      }}
                     />
                   </div>
                 )}
 
-                {/* 5. IMAGE_UPLOAD (Handwritten Diagram Problem) */}
+                {/* 5. IMAGE_UPLOAD (Handwritten Diagram / Formulation) */}
                 {currentQ.question_type === "IMAGE_UPLOAD" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                    <div style={{ background: "rgba(99, 102, 241, 0.1)", border: "1px dashed rgba(99, 102, 241, 0.4)", borderRadius: "var(--radius-md)", padding: "1.5rem", textAlign: "center" }}>
-                      <h4 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "0.5rem" }}>
-                        Handwritten Diagram Submission Area
-                      </h4>
-                      <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", marginBottom: "1.25rem", maxWidth: "500px", margin: "0 auto 1.25rem" }}>
-                        Draw your architectural or schematic diagram on paper. You can either snap a photo using your active webcam or upload an image file.
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                    <div style={{ background: "rgba(99, 102, 241, 0.1)", border: "1px solid rgba(99, 102, 241, 0.3)", borderRadius: "var(--radius-sm)", padding: "1rem 1.25rem" }}>
+                      <p style={{ fontSize: "0.875rem", color: "#e0e7ff", margin: 0, lineHeight: 1.5 }}>
+                        {t("exam_hall.diagram_desc", null, "Draw your architectural or schematic diagram on paper. You can either snap a photo using your active webcam or upload an image file.")}
                       </p>
-
-                      <div style={{ display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap" }}>
-                        <button
-                          type="button"
-                          onClick={() => captureWebcamSnapshot(currentQ.question_id)}
-                          className="btn btn-primary"
-                          style={{ padding: "0.6rem 1.25rem" }}
-                        >
-                          <Camera size={16} /> Snap Photo via Webcam
-                        </button>
-
-                        <label className="btn btn-secondary" style={{ padding: "0.6rem 1.25rem", cursor: "pointer" }}>
-                          <Upload size={16} /> Upload Image File
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleFileUpload(currentQ.question_id, e)}
-                            style={{ display: "none" }}
-                          />
-                        </label>
-                      </div>
                     </div>
 
-                    {/* Preview Uploaded Diagram */}
+                    <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                      <button
+                        onClick={() => captureWebcamSnapshot(currentQ.question_id)}
+                        className="btn btn-primary"
+                        style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 1.5rem" }}
+                      >
+                        <Camera size={18} /> {t("exam_hall.snap_webcam", null, "Snap Photo via Webcam")}
+                      </button>
+
+                      <label
+                        className="btn btn-secondary"
+                        style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 1.5rem", cursor: "pointer" }}
+                      >
+                        <Upload size={18} /> {t("exam_hall.upload_image_file", null, "Upload Image File")}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: "none" }}
+                          onChange={(e) => handleFileUpload(currentQ.question_id, e)}
+                        />
+                      </label>
+                    </div>
+
                     {currentAnswer.image_url && (
-                      <div style={{ background: "rgba(15, 23, 42, 0.9)", borderRadius: "var(--radius-md)", padding: "1rem", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+                      <div style={{ background: "rgba(15, 23, 42, 0.8)", padding: "1.25rem", borderRadius: "var(--radius-md)", border: "1px solid rgba(16, 185, 129, 0.4)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
                           <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#34d399", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                            <CheckCircle2 size={16} /> Attached Diagram Submission
+                            <CheckCircle2 size={16} /> {t("exam_hall.attached_diagram", null, "Attached Diagram Submission")}
                           </span>
                           <button
                             onClick={() => updateAnswer(currentQ.question_id, { image_url: null })}
-                            className="btn btn-secondary"
-                            style={{ padding: "0.25rem 0.5rem", fontSize: "0.7rem", color: "#f87171" }}
+                            className="btn btn-secondary btn-sm"
+                            style={{ color: "#f87171" }}
                           >
-                            Remove Image
+                            {t("exam_hall.remove_image", null, "Remove Image")}
                           </button>
                         </div>
                         <div style={{ textAlign: "center", maxHeight: "300px", overflow: "hidden", borderRadius: "var(--radius-sm)", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
@@ -914,11 +1353,11 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                   className="btn btn-secondary"
                   style={{ opacity: currentQIndex === 0 ? 0.4 : 1 }}
                 >
-                  <ArrowLeft size={16} /> Previous Question
+                  <ArrowLeft size={16} /> {t("exam_hall.previous_question", null, "Previous Question")}
                 </button>
 
                 <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                  Question {currentQIndex + 1} of {questions.length}
+                  {formatQuestionNumLabel(currentQIndex + 1, questions.length, language)}
                 </div>
 
                 {currentQIndex < questions.length - 1 ? (
@@ -926,14 +1365,14 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                     onClick={() => setCurrentQIndex(prev => Math.min(questions.length - 1, prev + 1))}
                     className="btn btn-primary"
                   >
-                    Save & Next Question <ArrowRight size={16} />
+                    {t("exam_hall.save_next_question", null, "Save & Next Question")} <ArrowRight size={16} />
                   </button>
                 ) : (
                   <button
                     onClick={() => setConfirmSubmitModal(true)}
                     className="btn btn-emerald"
                   >
-                    Review & Finish Exam <CheckCircle2 size={16} />
+                    {t("exam_hall.review_finish", null, "Review & Finish Exam")} <CheckCircle2 size={16} />
                   </button>
                 )}
               </div>
@@ -941,21 +1380,23 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
           ) : null}
         </div>
 
-        {/* Right Column: AI Proctoring HUD & Question Navigation Palette */}
+        {/* Right Column: Real AI Proctoring HUD & Question Palette */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", overflowY: "auto" }}>
           
           {/* AI Vision Proctoring Monitor Box */}
           <div className="glass-card" style={{ padding: "1.25rem", background: "rgba(15, 23, 42, 0.9)", border: "1px solid rgba(99, 102, 241, 0.3)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
               <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "#a5b4fc", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <Video size={14} color="#818cf8" /> AI PROCTOR VISION
+                <Video size={14} color="#818cf8" /> {t("exam_hall.ai_proctor_vision", null, "AI PROCTOR VISION")}
               </span>
-              <span className="badge badge-approved" style={{ fontSize: "0.65rem" }}>
-                Active & Encrypted
+              <span className={`badge ${cameraActive && videoTrackLive && !isFaceAbsent ? "badge-approved" : "badge-rejected"}`} style={{ fontSize: "0.65rem" }}>
+                {cameraActive && videoTrackLive 
+                  ? (isFaceAbsent ? t("exam_hall.face_absent_badge", null, "Face Absent") : t("exam_hall.live_active_badge", null, "● Live & Active")) 
+                  : (cameraStatus === "CAMERA_PERMISSION_DENIED" ? t("exam_hall.permission_denied_badge", null, "Permission Denied") : t("exam_hall.camera_off_badge", null, "Camera Off"))}
               </span>
             </div>
 
-            {/* Video Frame with Computer Vision Overlays */}
+            {/* Video Frame with Real Computer Vision Overlays */}
             <div
               style={{
                 position: "relative",
@@ -964,15 +1405,25 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                 background: "#020617",
                 borderRadius: "var(--radius-sm)",
                 overflow: "hidden",
-                border: "1px solid rgba(255, 255, 255, 0.1)"
+                border: (!cameraActive || videoDims.w === 0) 
+                  ? "1px solid rgba(239, 68, 68, 0.4)" 
+                  : (isFaceAbsent ? "1.5px solid #ef4444" : (isMultipleFaces ? "1.5px solid #ef4444" : (isGazeAway ? "1.5px solid #f59e0b" : "1px solid rgba(16, 185, 129, 0.4)")))
               }}
             >
               {/* Actual webcam stream */}
               <video
-                ref={videoRef}
+                ref={attachVideoRef}
                 autoPlay
                 playsInline
                 muted
+                onLoadedMetadata={(e) => {
+                  setVideoDims({ w: e.target.videoWidth, h: e.target.videoHeight });
+                  e.target.play().catch(() => {});
+                }}
+                onCanPlay={(e) => {
+                  setVideoReadyState(e.target.readyState);
+                  e.target.play().catch(() => {});
+                }}
                 style={{
                   width: "100%",
                   height: "100%",
@@ -982,110 +1433,189 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                 }}
               />
 
-              {/* High-tech fallback HUD if camera is inactive/simulated */}
               {!cameraActive && (
-                <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle, #1e1b4b 0%, #030712 100%)" }}>
-                  <div
-                    style={{
-                      width: "64px",
-                      height: "64px",
-                      borderRadius: "50%",
-                      border: "2px dashed #6366f1",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#818cf8",
-                      animation: "spin 12s linear infinite"
-                    }}
-                  >
-                    <Eye size={28} />
-                  </div>
-                  <span style={{ fontSize: "0.75rem", color: "#9ca3af", marginTop: "0.5rem" }}>
-                    Biometric Scanner Active
+                <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0f172a", color: "#f87171" }}>
+                  <VideoOff size={32} />
+                  <span style={{ fontSize: "0.75rem", marginTop: "0.5rem" }}>
+                    {cameraStatus === "CAMERA_PERMISSION_DENIED" ? t("exam_hall.permission_denied_badge", null, "Camera Permission Denied") : (cameraError || t("exam_hall.camera_off_badge", null, "Camera Off"))}
                   </span>
                 </div>
               )}
 
-              {/* Facial Bounding Box Overlay */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "18%",
-                  left: "25%",
-                  width: "50%",
-                  height: "64%",
-                  border: "1.5px solid #10b981",
-                  borderRadius: "6px",
-                  pointerEvents: "none",
-                  boxShadow: "0 0 8px rgba(16, 185, 129, 0.4)"
-                }}
-              >
-                <span
+              {/* Facial Bounding Box Overlay with Live Real-Time Dynamic Status */}
+              {cameraActive && videoDims.w > 0 && stableFaceBox && !isFaceAbsent && (
+                <div
                   style={{
                     position: "absolute",
-                    top: "-18px",
-                    left: "2px",
-                    background: "#10b981",
-                    color: "#000",
-                    fontSize: "0.6rem",
-                    fontWeight: 800,
-                    padding: "1px 4px",
-                    borderRadius: "2px"
+                    top: `${stableFaceBox.minY * 100}%`,
+                    left: `${(1 - stableFaceBox.maxX) * 100}%`,
+                    width: `${stableFaceBox.width * 100}%`,
+                    height: `${stableFaceBox.height * 100}%`,
+                    border: isMultipleFaces ? "2px solid #ef4444" : (isGazeAway ? "2px solid #f59e0b" : "2px solid #10b981"),
+                    borderRadius: "6px",
+                    pointerEvents: "none",
+                    boxShadow: isMultipleFaces ? "0 0 12px rgba(239, 68, 68, 0.6)" : (isGazeAway ? "0 0 10px rgba(245, 158, 11, 0.5)" : "0 0 10px rgba(16, 185, 129, 0.5)"),
+                    transition: "all 0.1s ease"
                   }}
                 >
-                  Candidate (99.4%)
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "-22px",
+                      left: "0",
+                      background: isMultipleFaces ? "#ef4444" : (isGazeAway ? "#f59e0b" : "#10b981"),
+                      color: "#000",
+                      fontSize: "0.625rem",
+                      fontWeight: 800,
+                      padding: "2px 6px",
+                      borderRadius: "3px",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    {isMultipleFaces 
+                      ? `⚠ Multiple Faces (${stableFaceCount})` 
+                      : (isGazeAway 
+                          ? `⚠ ${translateContent(stableGazeStatus, language)}` 
+                          : t("exam_hall.single_candidate_verified", null, "✓ Candidate • Focused on Screen"))}
+                  </span>
+                </div>
+              )}
+
+              {/* Face Absent Overlay Warning directly over video */}
+              {cameraActive && videoDims.w > 0 && isFaceAbsent && (
+                <div style={{ position: "absolute", top: "10px", left: "10px", right: "10px", background: "rgba(239, 68, 68, 0.85)", color: "#fff", padding: "4px 8px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.4rem", animation: "pulse 1.5s infinite" }}>
+                  <AlertTriangle size={14} color="#fff" />
+                  <span>{t("exam_hall.face_absent_banner", null, "Face Absent: Please remain in front of camera")}</span>
+                </div>
+              )}
+
+              {/* Live Audio Level Meter */}
+              {cameraActive && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "6px",
+                    left: "6px",
+                    right: "6px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    background: "rgba(0, 0, 0, 0.75)",
+                    padding: "3px 6px",
+                    borderRadius: "4px"
+                  }}
+                >
+                  <Mic size={11} color={audioLevel > 30 ? "#ef4444" : "#34d399"} />
+                  <div style={{ flex: 1, height: "3px", background: "rgba(255, 255, 255, 0.2)", borderRadius: "2px", overflow: "hidden" }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${Math.min(100, audioLevel * 2.5)}%`,
+                        background: audioLevel > 30 ? "#ef4444" : "#10b981",
+                        transition: "width 0.2s ease"
+                      }}
+                    />
+                  </div>
+                  <span style={{ fontSize: "0.6rem", color: "#94a3b8" }}>{audioLevel} dB</span>
+                </div>
+              )}
+            </div>
+
+            {/* Comprehensive AI Proctoring Telemetry Dashboard (Data-Driven from Real Pipeline) */}
+            <div style={{ marginTop: "0.85rem", display: "flex", flexDirection: "column", gap: "0.45rem", fontSize: "0.75rem" }}>
+              {/* 1. Camera Status */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(30, 41, 59, 0.4)", padding: "0.35rem 0.6rem", borderRadius: "4px" }}>
+                <span style={{ color: "var(--text-subtle)", fontWeight: 600 }}>{t("exam_hall.camera_label", null, "Camera:")}</span>
+                <span style={{ color: (cameraActive && videoTrackLive && videoDims.w > 0) ? "#34d399" : "#ef4444", fontWeight: 800 }}>
+                  {cameraActive && videoTrackLive && videoDims.w > 0 
+                    ? t("exam_hall.camera_active", null, "● Active") 
+                    : (cameraStatus === "CAMERA_PERMISSION_DENIED" ? t("exam_hall.camera_permission_denied", null, "✕ Permission denied") : (cameraStatus === "CAMERA_STOPPED" ? t("exam_hall.camera_disconnected", null, "✕ Disconnected") : t("exam_hall.camera_off", null, "✕ Off")))}
                 </span>
               </div>
 
-              {/* Live Audio Level Meter */}
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "8px",
-                  left: "8px",
-                  right: "8px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  background: "rgba(0, 0, 0, 0.65)",
-                  padding: "4px 8px",
-                  borderRadius: "4px"
-                }}
-              >
-                <Mic size={12} color="#34d399" />
-                <div style={{ flex: 1, height: "4px", background: "rgba(255, 255, 255, 0.2)", borderRadius: "2px", overflow: "hidden" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      width: `${Math.min(100, audioLevel * 3)}%`,
-                      background: audioLevel > 28 ? "#ef4444" : "#10b981",
-                      transition: "width 0.3s ease"
-                    }}
-                  />
-                </div>
-                <span style={{ fontSize: "0.65rem", color: "#94a3b8" }}>{audioLevel} dB</span>
+              {/* 2. Face Visibility */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(30, 41, 59, 0.4)", padding: "0.35rem 0.6rem", borderRadius: "4px" }}>
+                <span style={{ color: "var(--text-subtle)", fontWeight: 600 }}>{t("exam_hall.face_status_label", null, "Face Visibility:")}</span>
+                <span style={{ color: (!isFaceAbsent && cameraActive && videoDims.w > 0) ? "#34d399" : "#ef4444", fontWeight: 800 }}>
+                  {(!cameraActive || videoDims.w === 0) 
+                    ? t("exam_hall.no_valid_video_frame", null, "✕ No valid video frame") 
+                    : (!isFaceAbsent ? t("exam_hall.face_visible", null, "● Visible") : t("exam_hall.face_absent", null, "✕ Not Visible (Absent)"))}
+                </span>
+              </div>
+
+              {/* 3. Candidate Presence / Real Face Count */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(30, 41, 59, 0.4)", padding: "0.35rem 0.6rem", borderRadius: "4px" }}>
+                <span style={{ color: "var(--text-subtle)", fontWeight: 600 }}>{t("exam_hall.candidate_presence_label", null, "Candidate Presence:")}</span>
+                <span style={{ color: (stableFaceCount === 1 && cameraActive && videoDims.w > 0) ? "#34d399" : "#ef4444", fontWeight: 800 }}>
+                  {(!cameraActive || videoDims.w === 0)
+                    ? t("exam_hall.cannot_detect", null, "✕ Cannot detect")
+                    : (stableFaceCount === 1 
+                        ? t("exam_hall.single_candidate", null, "● Single Candidate (1 Face)") 
+                        : (stableFaceCount > 1 
+                            ? t("exam_hall.multiple_faces_detected", { count: stableFaceCount }, `⚠ Multiple Faces (${stableFaceCount} Detected)`) 
+                            : (stableFaceCount === 0 ? t("exam_hall.zero_faces_detected", null, "✕ 0 Faces Detected") : t("exam_hall.checking", null, "● Checking..."))))}
+                </span>
+              </div>
+
+              {/* 4. Screen Attention / Gaze Tracking */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(30, 41, 59, 0.4)", padding: "0.35rem 0.6rem", borderRadius: "4px" }}>
+                <span style={{ color: "var(--text-subtle)", fontWeight: 600 }}>{t("exam_hall.gaze_tracking_label", null, "Screen Attention:")}</span>
+                <span style={{ color: (!cameraActive || videoDims.w === 0 || isFaceAbsent) ? "#ef4444" : (isGazeAway ? "#fbbf24" : "#34d399"), fontWeight: 800 }}>
+                  {(!cameraActive || videoDims.w === 0 || isFaceAbsent)
+                    ? t("exam_hall.not_available", null, "✕ Not available")
+                    : (isMultipleFaces 
+                        ? t("exam_hall.multiple_faces_detected", { count: stableFaceCount }, "⚠ Multiple Faces") 
+                        : (isGazeAway ? `⚠ ${translateContent(stableGazeStatus, language)}` : t("exam_hall.looking_toward_screen", null, "● Looking Toward Screen")))}
+                </span>
+              </div>
+
+              {/* 5. Head Pose Orientation */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(30, 41, 59, 0.4)", padding: "0.35rem 0.6rem", borderRadius: "4px" }}>
+                <span style={{ color: "var(--text-subtle)", fontWeight: 600 }}>{t("exam_hall.head_pose_label", null, "Head Pose:")}</span>
+                <span style={{ color: (!cameraActive || videoDims.w === 0 || isFaceAbsent) ? "#ef4444" : (stableHeadStatus === "Centered" ? "#34d399" : "#fbbf24"), fontWeight: 800 }}>
+                  {(!cameraActive || videoDims.w === 0 || isFaceAbsent)
+                    ? t("exam_hall.not_available", null, "✕ Not available")
+                    : (isMultipleFaces 
+                        ? t("exam_hall.multiple_faces_detected", { count: stableFaceCount }, "⚠ Multiple Faces") 
+                        : (stableHeadStatus === "Centered" ? t("exam_hall.head_centered", null, "● Centered") : `⚠ ${translateContent(stableHeadStatus, language)}`)) }
+                </span>
+              </div>
+
+              {/* 6. Vision Engine Status */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(30, 41, 59, 0.4)", padding: "0.35rem 0.6rem", borderRadius: "4px" }}>
+                <span style={{ color: "var(--text-subtle)", fontWeight: 600 }}>{t("exam_hall.vision_engine_label", null, "Vision Engine:")}</span>
+                <span style={{ color: isVisionActive ? "#34d399" : (modelError ? "#ef4444" : "#fbbf24"), fontWeight: 700 }}>
+                  {visionStatusLabel}
+                </span>
+              </div>
+
+              {/* 7. Fullscreen Lockdown */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(30, 41, 59, 0.4)", padding: "0.35rem 0.6rem", borderRadius: "4px" }}>
+                <span style={{ color: "var(--text-subtle)", fontWeight: 600 }}>{t("exam_hall.fullscreen_mode_label", null, "Fullscreen Mode:")}</span>
+                <span style={{ color: isFullscreen ? "#34d399" : "#ef4444", fontWeight: 800 }}>
+                  {isFullscreen ? t("exam_hall.fullscreen_active", null, "● Active & Locked") : t("exam_hall.fullscreen_exited", null, "⚠ Exited (Overlay Active)")}
+                </span>
               </div>
             </div>
 
-            {/* Vision Metrics Summary */}
-            <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.75rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-subtle)" }}>Gaze Tracking:</span>
-                <span style={{ color: gazeStatus.includes("Away") ? "#f87171" : "#34d399", fontWeight: 600 }}>
-                  {gazeStatus}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-subtle)" }}>Face Status:</span>
-                <span style={{ color: "#34d399", fontWeight: 600 }}>Single Candidate Verified</span>
-              </div>
+            {/* Developer Detection Debug Panel */}
+            <div style={{ background: "rgba(0, 0, 0, 0.65)", border: "1px dashed rgba(99, 102, 241, 0.4)", padding: "0.6rem 0.75rem", borderRadius: "6px", fontSize: "0.7rem", fontFamily: "monospace", color: "#94a3b8", display: "flex", flexDirection: "column", gap: "0.25rem", marginTop: "0.75rem" }}>
+              <div style={{ fontWeight: 700, color: "#818cf8" }}>--- REAL AI DETECTION TELEMETRY ---</div>
+              <div>Camera stream: <span style={{ color: cameraActive ? "#34d399" : "#ef4444" }}>{cameraActive ? "ACTIVE" : "INACTIVE"}</span> ({cameraStatus})</div>
+              <div>Video dimensions: {videoDims.w}x{videoDims.h}</div>
+              <div>Video readyState: {videoReadyState}</div>
+              <div>Video track: <span style={{ color: videoTrackLive ? "#34d399" : "#ef4444" }}>{videoTrackLive ? "live" : "ended/none"}</span></div>
+              <div>AI model: <span style={{ color: aiModelLoaded ? "#34d399" : (modelError ? "#ef4444" : "#fbbf24") }}>{aiModelLoaded ? "LOADED" : (modelError ? "ERROR" : "LOADING")}</span></div>
+              <div>Frames processed: {framesProcessed}</div>
+              <div>Last detection: {lastDetectionTime ? `${Math.round(Date.now() - lastDetectionTime)}ms ago` : "None"}</div>
+              <div>Detected faces: <span style={{ color: stableFaceCount === 1 ? "#34d399" : "#ef4444", fontWeight: 700 }}>{stableFaceCount !== null ? stableFaceCount : "Checking..."}</span></div>
             </div>
           </div>
 
           {/* Question Navigation Palette */}
           <div className="glass-card" style={{ flex: 1, padding: "1.75rem", background: "rgba(15, 23, 42, 0.9)" }}>
             <h3 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: "1rem" }}>
-              Question Palette ({answeredCount}/{questions.length} Answered)
+              {t("exam_hall.palette_title", { answered: answeredCount, total: questions.length }, `Question Palette (${answeredCount}/${questions.length} Answered)`)}
             </h3>
 
             {/* Progress Bar */}
@@ -1100,57 +1630,37 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
               />
             </div>
 
-            {/* Filter Tabs */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.45rem", marginBottom: "1.25rem" }}>
-              {[
-                { key: "all", label: "All" },
-                { key: "answered", label: "Done" },
-                { key: "unanswered", label: "Left" },
-                { key: "marked", label: "Marked" }
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setFilterType(tab.key)}
-                  style={{
-                    padding: "0.5rem 0.3rem",
-                    fontSize: "0.785rem",
-                    borderRadius: "var(--radius-sm)",
-                    background: filterType === tab.key ? "#6366f1" : "rgba(30, 41, 59, 0.5)",
-                    border: "none",
-                    color: filterType === tab.key ? "#fff" : "#94a3b8",
-                    fontWeight: 700,
-                    cursor: "pointer"
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Number Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.65rem", marginBottom: "1.5rem" }}>
+            {/* Question Badges Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.6rem", maxHeight: "240px", overflowY: "auto", paddingRight: "4px" }}>
               {questions.map((q, idx) => {
-                const status = getQuestionStatus(q);
-                const isCurrent = currentQIndex === idx;
+                const ans = answers[q.question_id];
+                const isAnswered = ans && (
+                  (ans.selected_option_ids && ans.selected_option_ids.length > 0) ||
+                  (ans.text_answer && ans.text_answer.trim().length > 0) ||
+                  (ans.image_url && ans.image_url.length > 0)
+                );
+                const isMarked = markedForReview.has(q.question_id);
+                const isCurrent = idx === currentQIndex;
 
-                let bg = "rgba(30, 41, 59, 0.6)";
-                let borderColor = "transparent";
-                let textColor = "#94a3b8";
+                let bg = "rgba(30, 41, 59, 0.7)";
+                let color = "#94a3b8";
+                let border = "1px solid rgba(255, 255, 255, 0.08)";
 
-                if (status === "answered") {
-                  bg = "rgba(16, 185, 129, 0.25)";
-                  borderColor = "#10b981";
-                  textColor = "#34d399";
-                } else if (status === "marked" || status === "marked_answered") {
-                  bg = "rgba(168, 85, 247, 0.25)";
-                  borderColor = "#a855f7";
-                  textColor = "#d8b4fe";
+                if (isMarked && isAnswered) {
+                  bg = "linear-gradient(135deg, #a855f7, #10b981)";
+                  color = "#fff";
+                } else if (isMarked) {
+                  bg = "#a855f7";
+                  color = "#fff";
+                } else if (isAnswered) {
+                  bg = "#10b981";
+                  color = "#fff";
                 }
 
                 if (isCurrent) {
-                  borderColor = "#6366f1";
-                  bg = "rgba(99, 102, 241, 0.4)";
-                  textColor = "#fff";
+                  border = "2px solid #818cf8";
+                  bg = isAnswered ? "#10b981" : "rgba(99, 102, 241, 0.4)";
+                  color = "#fff";
                 }
 
                 return (
@@ -1158,121 +1668,136 @@ export const ExamHall = ({ sessionToken, onExamSubmitted, onExit }) => {
                     key={q.question_id}
                     onClick={() => setCurrentQIndex(idx)}
                     style={{
-                      height: "44px",
-                      borderRadius: "var(--radius-md)",
+                      height: "40px",
+                      borderRadius: "6px",
                       background: bg,
-                      border: `1.5px solid ${borderColor}`,
-                      color: textColor,
-                      fontWeight: 800,
-                      fontSize: "0.95rem",
+                      color: color,
+                      border: border,
+                      fontWeight: 700,
+                      fontSize: "0.85rem",
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      position: "relative",
-                      transition: "all 0.15s ease",
-                      boxShadow: isCurrent ? "0 0 12px rgba(99, 102, 241, 0.6)" : "none"
+                      transition: "all 0.15s ease"
                     }}
                   >
                     {idx + 1}
-                    {status.includes("marked") && (
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: "2px",
-                          right: "2px",
-                          width: "6px",
-                          height: "6px",
-                          borderRadius: "50%",
-                          background: "#c084fc"
-                        }}
-                      />
-                    )}
                   </button>
                 );
               })}
             </div>
 
             {/* Legend */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", fontSize: "0.725rem", color: "var(--text-subtle)", borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: "0.75rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "rgba(16, 185, 129, 0.4)", border: "1px solid #10b981" }} />
-                <span>Answered ({answeredCount})</span>
+            <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", fontSize: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: "#10b981" }} />
+                <span style={{ color: "var(--text-muted)" }}>{t("exam_hall.answered_badge", null, "Answered")}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "rgba(30, 41, 59, 0.6)" }} />
-                <span>Unanswered ({unansweredCount})</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: "rgba(30, 41, 59, 0.7)", border: "1px solid rgba(255,255,255,0.15)" }} />
+                <span style={{ color: "var(--text-muted)" }}>{t("exam_hall.unanswered_badge", null, "Unanswered")}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "rgba(168, 85, 247, 0.4)", border: "1px solid #a855f7" }} />
-                <span>Marked ({markedCount})</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: "#a855f7" }} />
+                <span style={{ color: "var(--text-muted)" }}>{t("exam_hall.marked_badge", null, "Marked")}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span style={{ width: "10px", height: "10px", borderRadius: "2px", border: "1.5px solid #6366f1" }} />
-                <span>Active Question</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ width: "12px", height: "12px", borderRadius: "3px", border: "2px solid #818cf8" }} />
+                <span style={{ color: "var(--text-muted)" }}>{t("exam_hall.active_legend", null, "Current")}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Confirmation & Summary Submission Modal */}
+      {/* =====================================================================
+          CONFIRM SUBMISSION MODAL
+          ===================================================================== */}
       {confirmSubmitModal && (
-        <div className="modal-overlay" onClick={() => setConfirmSubmitModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: "520px", padding: "2rem" }}>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 10000,
+            background: "rgba(0, 0, 0, 0.8)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1.5rem"
+          }}
+        >
+          <div
+            className="glass-card"
+            style={{
+              maxWidth: "500px",
+              width: "100%",
+              padding: "2.25rem",
+              background: "rgba(15, 23, 42, 0.98)",
+              border: "1px solid rgba(99, 102, 241, 0.4)",
+              borderRadius: "var(--radius-lg)"
+            }}
+          >
             <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
               <div
                 style={{
                   width: "56px",
                   height: "56px",
                   borderRadius: "50%",
-                  background: "rgba(16, 185, 129, 0.2)",
-                  border: "1px solid #10b981",
+                  background: "rgba(16, 185, 129, 0.15)",
+                  color: "#10b981",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  margin: "0 auto 1rem",
-                  color: "#34d399"
+                  margin: "0 auto 1rem"
                 }}
               >
-                <CheckCircle2 size={30} />
+                <CheckCircle2 size={32} />
               </div>
-              <h3 style={{ fontSize: "1.3rem", fontWeight: 800 }}>Submit Examination?</h3>
-              <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                Once submitted, automated AI grading will evaluate your responses immediately.
+              <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#fff", margin: "0 0 0.5rem" }}>
+                {t("exam_hall.confirm_submit_title", null, "Ready to Submit Examination?")}
+              </h3>
+              <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", margin: 0 }}>
+                {t("exam_hall.confirm_submit_desc", null, "Once submitted, your answers will be evaluated and an integrity report generated.")}
               </p>
             </div>
 
-            {/* Submission Status Summary */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", marginBottom: "1.5rem", textAlign: "center" }}>
-              <div style={{ background: "rgba(16, 185, 129, 0.1)", padding: "0.85rem", borderRadius: "var(--radius-sm)", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
-                <span style={{ fontSize: "1.4rem", fontWeight: 800, color: "#34d399", display: "block" }}>{answeredCount}</span>
-                <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Answered</span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "1.75rem", textAlign: "center" }}>
+              <div style={{ background: "rgba(30, 41, 59, 0.6)", padding: "0.75rem", borderRadius: "6px" }}>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block" }}>{t("exam_hall.answered_badge", null, "Answered")}</span>
+                <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#34d399" }}>{answeredCount}</span>
               </div>
-              <div style={{ background: "rgba(239, 68, 68, 0.1)", padding: "0.85rem", borderRadius: "var(--radius-sm)", border: "1px solid rgba(239, 68, 68, 0.3)" }}>
-                <span style={{ fontSize: "1.4rem", fontWeight: 800, color: "#f87171", display: "block" }}>{unansweredCount}</span>
-                <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Unanswered</span>
+              <div style={{ background: "rgba(30, 41, 59, 0.6)", padding: "0.75rem", borderRadius: "6px" }}>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block" }}>{t("exam_hall.unanswered_badge", null, "Unanswered")}</span>
+                <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#f87171" }}>{questions.length - answeredCount}</span>
               </div>
-              <div style={{ background: "rgba(168, 85, 247, 0.1)", padding: "0.85rem", borderRadius: "var(--radius-sm)", border: "1px solid rgba(168, 85, 247, 0.3)" }}>
-                <span style={{ fontSize: "1.4rem", fontWeight: 800, color: "#c084fc", display: "block" }}>{markedCount}</span>
-                <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Marked</span>
+              <div style={{ background: "rgba(30, 41, 59, 0.6)", padding: "0.75rem", borderRadius: "6px" }}>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block" }}>{t("exam_hall.marked_badge", null, "Marked")}</span>
+                <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#d8b4fe" }}>{markedCount}</span>
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+            <div style={{ display: "flex", gap: "1rem" }}>
               <button
                 disabled={submitting}
-                className="btn btn-secondary"
                 onClick={() => setConfirmSubmitModal(false)}
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
               >
-                Resume Exam
+                {t("common.cancel", null, "Return to Exam")}
               </button>
               <button
                 disabled={submitting}
-                className="btn btn-emerald btn-lg"
                 onClick={handleFinalSubmit}
+                className="btn btn-emerald"
+                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
               >
-                {submitting ? "Evaluating Responses..." : "Confirm & Finalize Submission"}
+                {submitting ? <RefreshCw size={16} className="spin-animation" /> : <Check size={16} />}
+                <span>{submitting ? t("exam_hall.evaluating_responses", null, "Submitting...") : t("exam_hall.confirm_submit", null, "Confirm & Submit")}</span>
               </button>
             </div>
           </div>

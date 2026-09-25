@@ -15,15 +15,17 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export const LandingPage = ({ setCurrentView }) => {
   const { login } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const handleQuickLogin = async (identifier, password, roleName) => {
     try {
       const res = await login(identifier, password);
-      showToast(`Logged in successfully as ${roleName} (${res.user.name})`, "success");
+      showToast(`${t("toast.login_success", null, "Logged in successfully as")} ${roleName} (${res.user.name})`, "success");
       if (res.user.role === "STUDENT") {
         setCurrentView("student_dashboard");
       } else if (res.user.role === "EXAMINER") {
@@ -56,16 +58,16 @@ export const LandingPage = ({ setCurrentView }) => {
             boxShadow: "0 0 20px rgba(99, 102, 241, 0.15)"
           }}
         >
-          <Sparkles size={17} /> Next-Generation AI Examination & Proctoring Infrastructure
+          <Sparkles size={17} /> {t("landing.badge_infra", null, "Next-Generation AI Examination & Proctoring Infrastructure")}
         </div>
 
         <h1 style={{ fontSize: "3.6rem", fontWeight: 800, lineHeight: 1.18, letterSpacing: "-0.035em", marginBottom: "1.5rem" }}>
-          Intelligent Assessment & <br />
-          <span className="gradient-text">Question Bank Platform</span>
+          {t("landing.hero_title_1", null, "Intelligent Assessment &")} <br />
+          <span className="gradient-text">{t("landing.hero_title_gradient", null, "Question Bank Platform")}</span>
         </h1>
 
         <p style={{ fontSize: "1.2rem", color: "var(--text-muted)", lineHeight: 1.65, marginBottom: "2.75rem", maxWidth: "780px", margin: "0 auto 2.75rem" }}>
-          Seamless student registration gatekeeping, robust administrator approval pipelines, and a versatile 5-type question bank with AI-assisted generation for universities and institutions.
+          {t("landing.hero_desc", null, "Seamless student registration gatekeeping, robust administrator approval pipelines, and a versatile 5-type question bank with AI-assisted generation for universities and institutions.")}
         </p>
 
         <div style={{ display: "flex", justifyContent: "center", gap: "1.25rem", flexWrap: "wrap" }}>
@@ -74,13 +76,13 @@ export const LandingPage = ({ setCurrentView }) => {
             className="btn btn-primary btn-lg"
           >
             <GraduationCap size={22} />
-            Student Registration
+            {t("landing.btn_student_reg", null, "Student Registration")}
           </button>
           <button
             onClick={() => setCurrentView("student_login")}
             className="btn btn-secondary btn-lg"
           >
-            Student Login
+            {t("landing.btn_student_login", null, "Student Login")}
             <ArrowRight size={20} />
           </button>
           <button
@@ -89,7 +91,7 @@ export const LandingPage = ({ setCurrentView }) => {
             style={{ borderColor: "rgba(168, 85, 247, 0.4)", color: "#d8b4fe" }}
           >
             <Shield size={20} />
-            Admin / Examiner Portal
+            {t("landing.btn_admin_portal", null, "Admin / Examiner Portal")}
           </button>
         </div>
       </div>
@@ -98,10 +100,10 @@ export const LandingPage = ({ setCurrentView }) => {
       <div style={{ marginBottom: "5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <h2 style={{ fontSize: "1.65rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.02em" }}>
-            ⚡ Instant 1-Click Demo Accounts
+            {t("landing.demo_title", null, "⚡ Instant 1-Click Demo Accounts")}
           </h2>
           <p style={{ fontSize: "0.95rem", color: "var(--text-subtle)", marginTop: "0.45rem" }}>
-            Test each role workflow instantly without having to type credentials:
+            {t("landing.demo_desc", null, "Test each role workflow instantly without having to type credentials:")}
           </p>
         </div>
 
@@ -111,12 +113,12 @@ export const LandingPage = ({ setCurrentView }) => {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <Shield size={22} color="#c084fc" />
-                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>Administrator</h3>
+                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>{t("landing.admin_card_title", null, "Administrator")}</h3>
               </div>
-              <span className="badge badge-role-admin">Full Control</span>
+              <span className="badge badge-role-admin">{t("landing.admin_badge", null, "Full Control")}</span>
             </div>
             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1.25rem", lineHeight: 1.5 }}>
-              Approve/reject pending examiners and students, inspect analytics, and manage question bank.
+              {t("landing.admin_desc", null, "Approve/reject pending examiners and students, inspect analytics, and manage question bank.")}
             </p>
             <div style={{ fontSize: "0.8rem", fontFamily: "var(--font-mono)", color: "var(--text-subtle)", marginBottom: "1.25rem", background: "rgba(15, 23, 42, 0.8)", padding: "0.65rem 0.85rem", borderRadius: "8px" }}>
               admin@examai.edu &bull; Admin@123
@@ -126,7 +128,7 @@ export const LandingPage = ({ setCurrentView }) => {
               className="btn btn-secondary"
               style={{ width: "100%", borderColor: "rgba(168, 85, 247, 0.4)", color: "#d8b4fe", padding: "0.75rem" }}
             >
-              Sign In as Admin
+              {t("landing.admin_btn", null, "Sign In as Admin")}
             </button>
           </div>
 
@@ -135,12 +137,12 @@ export const LandingPage = ({ setCurrentView }) => {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <Award size={22} color="#67e8f9" />
-                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>Approved Examiner</h3>
+                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>{t("landing.approved_card_title", null, "Approved Examiner")}</h3>
               </div>
-              <span className="badge badge-role-examiner">Authorized</span>
+              <span className="badge badge-role-examiner">{t("landing.approved_badge", null, "Authorized")}</span>
             </div>
             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1.25rem", lineHeight: 1.5 }}>
-              Full access to create and manage questions across all 5 types with AI synthesis tools.
+              {t("landing.approved_desc", null, "Full access to create and manage questions across all 5 types with AI synthesis tools.")}
             </p>
             <div style={{ fontSize: "0.8rem", fontFamily: "var(--font-mono)", color: "var(--text-subtle)", marginBottom: "1.25rem", background: "rgba(15, 23, 42, 0.8)", padding: "0.65rem 0.85rem", borderRadius: "8px" }}>
               examiner@examai.edu &bull; Examiner@123
@@ -150,7 +152,7 @@ export const LandingPage = ({ setCurrentView }) => {
               className="btn btn-secondary"
               style={{ width: "100%", borderColor: "rgba(6, 182, 212, 0.4)", color: "#67e8f9", padding: "0.75rem" }}
             >
-              Sign In as Examiner
+              {t("landing.approved_btn", null, "Sign In as Examiner")}
             </button>
           </div>
 
@@ -159,12 +161,12 @@ export const LandingPage = ({ setCurrentView }) => {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <Clock size={22} color="#fbbf24" />
-                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>Pending Examiner</h3>
+                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>{t("landing.pending_card_title", null, "Pending Examiner")}</h3>
               </div>
-              <span className="badge badge-pending">PENDING</span>
+              <span className="badge badge-pending">{t("landing.pending_badge", null, "PENDING")}</span>
             </div>
             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1.25rem", lineHeight: 1.5 }}>
-              Demonstrates strict gatekeeper block. Shows Status: PENDING until approved by admin.
+              {t("landing.pending_desc", null, "Demonstrates strict gatekeeper block. Shows Status: PENDING until approved by admin.")}
             </p>
             <div style={{ fontSize: "0.8rem", fontFamily: "var(--font-mono)", color: "var(--text-subtle)", marginBottom: "1.25rem", background: "rgba(15, 23, 42, 0.8)", padding: "0.65rem 0.85rem", borderRadius: "8px" }}>
               pending.examiner@examai.edu &bull; Examiner@123
@@ -174,7 +176,7 @@ export const LandingPage = ({ setCurrentView }) => {
               className="btn btn-secondary"
               style={{ width: "100%", borderColor: "rgba(245, 158, 11, 0.4)", color: "#fbbf24", padding: "0.75rem" }}
             >
-              Test Gatekeeper Block
+              {t("landing.pending_btn", null, "Test Gatekeeper Block")}
             </button>
           </div>
 
@@ -183,12 +185,12 @@ export const LandingPage = ({ setCurrentView }) => {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <GraduationCap size={22} color="#34d399" />
-                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>Approved Student</h3>
+                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>{t("landing.student_card_title", null, "Approved Student")}</h3>
               </div>
-              <span className="badge badge-approved">Verified</span>
+              <span className="badge badge-approved">{t("landing.student_badge", null, "Verified")}</span>
             </div>
             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1.25rem", lineHeight: 1.5 }}>
-              Access student portal, view scheduled examinations, practice questions, and review guidelines.
+              {t("landing.student_desc", null, "Access student portal, view scheduled examinations, practice questions, and review guidelines.")}
             </p>
             <div style={{ fontSize: "0.8rem", fontFamily: "var(--font-mono)", color: "var(--text-subtle)", marginBottom: "1.25rem", background: "rgba(15, 23, 42, 0.8)", padding: "0.65rem 0.85rem", borderRadius: "8px" }}>
               REG2024CS001 &bull; Student@123
@@ -198,7 +200,7 @@ export const LandingPage = ({ setCurrentView }) => {
               className="btn btn-emerald"
               style={{ width: "100%", padding: "0.75rem" }}
             >
-              Sign In as Student
+              {t("landing.student_btn", null, "Sign In as Student")}
             </button>
           </div>
         </div>
@@ -211,10 +213,10 @@ export const LandingPage = ({ setCurrentView }) => {
             <ShieldCheck size={28} />
           </div>
           <h3 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.75rem" }}>
-            1. Strict Approval Gatekeeping
+            {t("landing.pillar_1_title", null, "1. Strict Approval Gatekeeping")}
           </h3>
           <p style={{ fontSize: "0.925rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
-            New student registrations are marked <strong>PENDING</strong> and cannot access examination portals until approved by verified institutional administrators.
+            {t("landing.pillar_1_desc", null, "New student registrations are marked PENDING and cannot access examination portals until approved by verified institutional administrators.")}
           </p>
         </div>
 
@@ -223,10 +225,10 @@ export const LandingPage = ({ setCurrentView }) => {
             <Layers size={28} />
           </div>
           <h3 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.75rem" }}>
-            2. 5 Multi-Modal Question Types
+            {t("landing.pillar_2_title", null, "2. 5 Multi-Modal Question Types")}
           </h3>
           <p style={{ fontSize: "0.925rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Comprehensive authoring for Single MCQ, Multi-Select, Short Answer, Long Form with Rubrics, and Handwritten Image Uploads.
+            {t("landing.pillar_2_desc", null, "Comprehensive authoring for Single MCQ, Multi-Select, Short Answer, Long Form with Rubrics, and Handwritten Image Uploads.")}
           </p>
         </div>
 
@@ -235,13 +237,14 @@ export const LandingPage = ({ setCurrentView }) => {
             <Cpu size={28} />
           </div>
           <h3 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.75rem" }}>
-            3. AI Assistant & Vision Grading
+            {t("landing.pillar_3_title", null, "3. AI Assistant & Vision Grading")}
           </h3>
           <p style={{ fontSize: "0.925rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Generate balanced exam questions with answer keys in one click and evaluate handwritten schematics against model rubrics.
+            {t("landing.pillar_3_desc", null, "Generate balanced exam questions with answer keys in one click and evaluate handwritten schematics against model rubrics.")}
           </p>
         </div>
       </div>
     </div>
   );
 };
+

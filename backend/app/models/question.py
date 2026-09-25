@@ -26,6 +26,28 @@ class Question(Base):
     negative_marks: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     
+    # Multilingual support fields (Requirement 9 & 10)
+    question_text_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    question_text_ta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    question_text_te: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    question_text_hi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    question_text_ml: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    question_text_kn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    explanation_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    explanation_ta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    explanation_te: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    explanation_hi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    explanation_ml: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    explanation_kn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    model_answer_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    model_answer_ta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    model_answer_te: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    model_answer_hi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    model_answer_ml: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    model_answer_kn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
     created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
@@ -66,6 +88,15 @@ class Option(Base):
     question_id: Mapped[int] = mapped_column(Integer, ForeignKey("question_bank.id", ondelete="CASCADE"), nullable=False, index=True)
     option_text: Mapped[str] = mapped_column(Text, nullable=False)
     is_correct: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # Multilingual option text fields (Requirement 9 & 10)
+    option_text_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    option_text_ta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    option_text_te: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    option_text_hi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    option_text_ml: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    option_text_kn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships

@@ -21,11 +21,13 @@ import {
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 import { StatCard } from "../components/StatCard";
 
 export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspectSession }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [exams, setExams] = useState([]);
   const [selectedExamId, setSelectedExamId] = useState(initialExamId ? String(initialExamId) : "ALL");
@@ -181,7 +183,7 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
                 className="btn btn-secondary"
                 style={{ marginBottom: "0.75rem", padding: "0.35rem 0.75rem", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
               >
-                <ArrowLeft size={14} /> Back to Examiner Studio
+                <ArrowLeft size={14} /> {t("examiner.back_studio", "Back to Examiner Studio")}
               </button>
             )}
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -200,10 +202,10 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
               </div>
               <div>
                 <h1 style={{ fontSize: "1.85rem", fontWeight: 800, color: "var(--text-main)", margin: 0 }}>
-                  Enrolled Students & Candidate Directory
+                  {t("examiner.enrolled_title", "Enrolled Students & Candidate Directory")}
                 </h1>
                 <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", margin: 0 }}>
-                  Monitor enrolled candidates, real-time participation status, scorecard assessments, and AI proctoring integrity.
+                  {t("examiner.enrolled_subtitle", "Monitor enrolled candidates, real-time participation status, scorecard assessments, and AI proctoring integrity.")}
                 </p>
               </div>
             </div>
@@ -218,7 +220,7 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
               style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}
             >
               <RefreshCw size={15} className={refreshing ? "spin" : ""} />
-              {refreshing ? "Refreshing..." : "Refresh Roster"}
+              {refreshing ? t("common.refreshing", "Refreshing...") : t("examiner.refresh_roster", "Refresh Roster")}
             </button>
 
             <button
@@ -233,7 +235,7 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
               }}
             >
               <Download size={15} />
-              Export CSV Roster
+              {t("examiner.export_csv", "Export CSV Roster")}
             </button>
           </div>
         </div>
@@ -242,45 +244,45 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
       {/* 2. KPI Summary Bar */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1.25rem", marginBottom: "2rem" }}>
         <StatCard
-          title="Total Enrolled"
+          title={t("examiner.kpi_total_enrolled", "Total Enrolled")}
           value={summaryData.total_enrolled}
           icon={GraduationCap}
-          trend="Eligible Candidates"
+          trend={t("examiner.kpi_eligible_candidates", "Eligible Candidates")}
           trendUp={true}
         />
         <StatCard
-          title="Completed / Graded"
+          title={t("examiner.kpi_completed_graded", "Completed / Graded")}
           value={summaryData.completed_count}
           icon={CheckCircle2}
-          trend={`${summaryData.total_enrolled > 0 ? Math.round((summaryData.completed_count / summaryData.total_enrolled) * 100) : 0}% Turnout`}
+          trend={`${summaryData.total_enrolled > 0 ? Math.round((summaryData.completed_count / summaryData.total_enrolled) * 100) : 0}% ${t("examiner.turnout", "Turnout")}`}
           trendUp={true}
         />
         <StatCard
-          title="Active / In-Progress"
+          title={t("examiner.kpi_in_progress", "Active / In-Progress")}
           value={summaryData.in_progress_count}
           icon={Clock}
-          trend="Live Sessions"
+          trend={t("examiner.kpi_live_sessions", "Live Sessions")}
           trendUp={false}
         />
         <StatCard
-          title="Not Started"
+          title={t("examiner.kpi_not_started", "Not Started")}
           value={summaryData.not_started_count}
           icon={AlertCircle}
-          trend="Pending Attempts"
+          trend={t("examiner.kpi_pending_attempts", "Pending Attempts")}
           trendUp={false}
         />
         <StatCard
-          title="Avg Exam Score"
+          title={t("examiner.kpi_avg_score", "Avg Exam Score")}
           value={avgScore !== "—" ? `${avgScore}%` : "—"}
           icon={Award}
-          trend="Assessed Performance"
+          trend={t("examiner.kpi_assessed_perf", "Assessed Performance")}
           trendUp={Number(avgScore) >= 60}
         />
         <StatCard
-          title="AI Trust Index"
+          title={t("examiner.kpi_ai_trust", "AI Trust Index")}
           value={`${avgIntegrity}%`}
           icon={ShieldCheck}
-          trend="Proctoring Integrity"
+          trend={t("examiner.kpi_proctor_integrity", "Proctoring Integrity")}
           trendUp={Number(avgIntegrity) >= 85}
         />
       </div>
@@ -296,14 +298,14 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
               <input
                 type="text"
                 className="input-field"
-                placeholder="Search candidate by name, email, register number..."
+                placeholder={t("examiner.search_candidate_ph", "Search candidate by name, email, register number...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{ paddingLeft: "2.5rem", width: "100%" }}
               />
             </div>
             <button type="submit" className="btn btn-secondary" style={{ padding: "0 1rem" }}>
-              Search
+              {t("common.search", "Search")}
             </button>
           </form>
 
@@ -316,7 +318,7 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
               onChange={(e) => setSelectedExamId(e.target.value)}
               style={{ minWidth: "220px" }}
             >
-              <option value="ALL">All Configured Examinations</option>
+              <option value="ALL">{t("examiner.all_configured_exams", "All Configured Examinations")}</option>
               {exams.map((ex) => (
                 <option key={ex.id} value={ex.id}>
                   {ex.title} ({ex.subject})
@@ -328,10 +330,10 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
           {/* Status Tabs */}
           <div style={{ display: "flex", gap: "0.35rem", background: "rgba(15, 23, 42, 0.6)", padding: "0.25rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
             {[
-              { id: "ALL", label: "All Status" },
-              { id: "SUBMITTED", label: "Completed" },
-              { id: "IN_PROGRESS", label: "In Progress" },
-              { id: "NOT_STARTED", label: "Not Started" }
+              { id: "ALL", label: t("common.all", "All Status") },
+              { id: "SUBMITTED", label: t("common.completed", "Completed") },
+              { id: "IN_PROGRESS", label: t("common.in_progress", "In Progress") },
+              { id: "NOT_STARTED", label: t("common.not_started", "Not Started") }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -361,17 +363,17 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
           <div>
             <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700, color: "var(--text-main)" }}>
-              Enrolled Candidates ({summaryData.students?.length || 0})
+              {t("examiner.enrolled_candidates_count", "Enrolled Candidates ({count})", { count: summaryData.students?.length || 0 })}
             </h3>
             <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>
               {selectedExamId === "ALL" 
-                ? "Displaying student rosters across all available examinations" 
-                : `Filtered to selected examination #${selectedExamId}`}
+                ? t("examiner.all_rosters_desc", "Displaying student rosters across all available examinations") 
+                : t("examiner.filtered_exam_desc", "Filtered to selected examination #{id}", { id: selectedExamId })}
             </p>
           </div>
 
           <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-            Showing <strong>{summaryData.students?.length || 0}</strong> registered enrollments
+            {t("examiner.showing_enrollments", "Showing {count} registered enrollments", { count: summaryData.students?.length || 0 })}
           </div>
         </div>
 
@@ -380,16 +382,16 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
             <div className="spin" style={{ display: "inline-block", marginBottom: "1rem" }}>
               <RefreshCw size={28} color="#a855f7" />
             </div>
-            <div>Loading enrolled candidate records...</div>
+            <div>{t("examiner.loading_enrolled", "Loading enrolled candidate records...")}</div>
           </div>
         ) : summaryData.students?.length === 0 ? (
           <div style={{ textAlign: "center", padding: "3.5rem 1rem", border: "1px dashed var(--border-color)", borderRadius: "var(--radius-md)", color: "var(--text-muted)" }}>
             <Users size={36} color="#818cf8" style={{ margin: "0 auto 0.75rem" }} />
             <h4 style={{ margin: "0 0 0.4rem", color: "var(--text-main)", fontSize: "1.05rem" }}>
-              No Enrolled Candidates Found
+              {t("examiner.no_enrolled_found", "No Enrolled Candidates Found")}
             </h4>
             <p style={{ fontSize: "0.85rem", maxWidth: "450px", margin: "0 auto 1.25rem" }}>
-              No candidates matched your search criteria or selected examination filters. Try clearing your search or switching filter tabs.
+              {t("examiner.no_enrolled_desc", "No candidates matched your search criteria or selected examination filters. Try clearing your search or switching filter tabs.")}
             </p>
             <button
               onClick={() => {
@@ -399,7 +401,7 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
               }}
               className="btn btn-secondary btn-sm"
             >
-              Reset All Filters
+              {t("examiner.reset_filters", "Reset All Filters")}
             </button>
           </div>
         ) : (
@@ -407,12 +409,12 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
             <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 0.5rem" }}>
               <thead>
                 <tr style={{ color: "var(--text-subtle)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "left" }}>
-                  <th style={{ padding: "0.75rem 1rem" }}>Candidate Info</th>
-                  <th style={{ padding: "0.75rem 1rem" }}>Enrolled Examination</th>
-                  <th style={{ padding: "0.75rem 1rem" }}>Participation Status</th>
-                  <th style={{ padding: "0.75rem 1rem" }}>Score & Result</th>
-                  <th style={{ padding: "0.75rem 1rem" }}>AI Integrity Trust</th>
-                  <th style={{ padding: "0.75rem 1rem", textAlign: "right" }}>Actions</th>
+                  <th style={{ padding: "0.75rem 1rem" }}>{t("examiner.col_candidate_info", "Candidate Info")}</th>
+                  <th style={{ padding: "0.75rem 1rem" }}>{t("examiner.col_enrolled_exam", "Enrolled Examination")}</th>
+                  <th style={{ padding: "0.75rem 1rem" }}>{t("examiner.col_participation_status", "Participation Status")}</th>
+                  <th style={{ padding: "0.75rem 1rem" }}>{t("examiner.col_score_result", "Score & Result")}</th>
+                  <th style={{ padding: "0.75rem 1rem" }}>{t("examiner.col_ai_integrity", "AI Integrity Trust")}</th>
+                  <th style={{ padding: "0.75rem 1rem", textAlign: "right" }}>{t("common.actions", "Actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -471,7 +473,7 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
                           {student.exam_title}
                         </div>
                         <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.15rem" }}>
-                          {student.exam_subject} • {student.duration_minutes} Mins • Total {student.total_marks} Marks
+                          {student.exam_subject} • {student.duration_minutes} {t("common.mins", "Mins")} • {t("common.total", "Total")} {student.total_marks} {t("common.marks", "Marks")}
                         </div>
                       </td>
 
@@ -479,22 +481,22 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
                       <td style={{ padding: "1rem" }}>
                         {isSubmitted && (
                           <span className="badge badge-approved" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-                            <CheckCircle2 size={12} /> Completed
+                            <CheckCircle2 size={12} /> {t("common.completed", "Completed")}
                           </span>
                         )}
                         {isInProgress && (
                           <span className="badge badge-pending" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "rgba(245, 158, 11, 0.15)", color: "#fbbf24", borderColor: "rgba(245, 158, 11, 0.4)" }}>
-                            <Clock size={12} /> In Progress
+                            <Clock size={12} /> {t("common.in_progress", "In Progress")}
                           </span>
                         )}
                         {isNotStarted && (
                           <span className="badge" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "rgba(100, 116, 139, 0.15)", color: "#94a3b8", borderColor: "rgba(100, 116, 139, 0.3)" }}>
-                            Not Started
+                            {t("common.not_started", "Not Started")}
                           </span>
                         )}
                         {student.submitted_at && (
                           <div style={{ fontSize: "0.7rem", color: "var(--text-subtle)", marginTop: "0.25rem" }}>
-                            Submitted: {new Date(student.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {t("student_dashboard.submitted_on", "Submitted: {date}", { date: new Date(student.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
                           </div>
                         )}
                       </td>
@@ -516,13 +518,13 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
                                 color: student.passed ? "#34d399" : "#f87171",
                                 border: `1px solid ${student.passed ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`
                               }}>
-                                {student.percentage}% {student.passed ? "PASSED" : "FAILED"}
+                                {student.percentage}% {student.passed ? t("common.passed", "PASSED") : t("common.failed", "FAILED")}
                               </span>
                             </div>
                           </div>
                         ) : (
                           <span style={{ fontSize: "0.8rem", color: "var(--text-subtle)" }}>
-                            {isInProgress ? "Test In Progress..." : "Awaiting Candidate Attempt"}
+                            {isInProgress ? t("examiner.test_in_progress", "Test In Progress...") : t("examiner.awaiting_attempt", "Awaiting Candidate Attempt")}
                           </span>
                         )}
                       </td>
@@ -544,11 +546,11 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
                               border: `1px solid ${student.integrity_score >= 80 ? "rgba(16, 185, 129, 0.3)" : student.integrity_score >= 60 ? "rgba(245, 158, 11, 0.3)" : "rgba(239, 68, 68, 0.3)"}`
                             }}>
                               {student.integrity_score >= 80 ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
-                              {student.integrity_score}% Trust
+                              {student.integrity_score}% {t("examiner.trust", "Trust")}
                             </span>
                             {student.violations_count > 0 && (
                               <span style={{ fontSize: "0.7rem", color: "#f87171", fontWeight: 600 }}>
-                                {student.violations_count} violation{student.violations_count > 1 ? "s" : ""}
+                                {student.violations_count} {t("examiner.flags", "Flags")}
                               </span>
                             )}
                           </div>
@@ -573,11 +575,11 @@ export const ExaminerEnrolledStudents = ({ initialExamId = null, onBack, onInspe
                             className="btn btn-secondary btn-sm"
                             style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", padding: "0.35rem 0.65rem" }}
                           >
-                            <Eye size={13} /> Inspect Answers
+                            <Eye size={13} /> {t("examiner.inspect_answers", "Inspect Answers")}
                           </button>
                         ) : (
                           <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
-                            No Session Active
+                            {t("examiner.no_session_active", "No Session Active")}
                           </span>
                         )}
                       </td>

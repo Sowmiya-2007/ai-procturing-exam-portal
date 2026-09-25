@@ -32,6 +32,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { StudentDetailModal } from "../components/StudentDetailModal";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export const AdminDashboard = ({ 
   setCurrentView, 
@@ -39,6 +40,7 @@ export const AdminDashboard = ({
   initialTab = "all" 
 }) => {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState(initialTab); // "all", "students", "examiners", "exams"
 
   const [stats, setStats] = useState(null);
@@ -250,7 +252,7 @@ export const AdminDashboard = ({
       <div className="page-container" style={{ textAlign: "center", paddingTop: "5rem" }}>
         <RefreshCw size={36} className="spin-animation" style={{ margin: "0 auto 1rem", color: "#818cf8" }} />
         <div style={{ fontSize: "1.1rem", color: "var(--text-muted)" }}>
-          Loading Institutional Admin Dashboard...
+          {t("common.loading", "Loading...")}
         </div>
       </div>
     );
@@ -262,12 +264,12 @@ export const AdminDashboard = ({
       <div className="dashboard-header">
         <div className="dashboard-title-group">
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <span className="badge badge-role-admin">Institutional Admin</span>
+            <span className="badge badge-role-admin">{t("navbar.role_admin", "Institutional Admin")}</span>
             <span style={{ fontSize: "0.785rem", color: "var(--text-subtle)" }}>Central Authority</span>
           </div>
-          <h1>Institutional Administration</h1>
+          <h1>{t("admin.dashboard_title", "Institutional Administration")}</h1>
           <p>
-            Governance hub strictly managing <strong>Enrolled Students</strong>, <strong>Approval of Examiner</strong>, and <strong>Available Exams</strong>
+            {t("admin.dashboard_sub", "Governance hub strictly managing Enrolled Students, Approval of Examiner, and Available Exams")}
           </p>
         </div>
 
@@ -279,7 +281,7 @@ export const AdminDashboard = ({
             style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
           >
             <RefreshCw size={14} className={refreshing ? "spin-animation" : ""} />
-            Sync Portal Data
+            {t("common.refresh", "Sync Portal Data")}
           </button>
           <button
             onClick={() => setActiveTab("examiners")}
@@ -290,7 +292,7 @@ export const AdminDashboard = ({
             }}
           >
             <ShieldCheck size={15} color="#c084fc" />
-            Examiner Approvals ({pendingExaminersCount})
+            {t("sidebar.examiner_approvals", "Approval of Examiner")} ({pendingExaminersCount})
           </button>
           <button
             onClick={() => setActiveTab("students")}
@@ -301,7 +303,7 @@ export const AdminDashboard = ({
             }}
           >
             <Users size={15} color="#818cf8" />
-            Student Approvals ({pendingStudentsCount})
+            {t("admin.tab_students", "Student Candidates")} ({pendingStudentsCount})
           </button>
           <button
             onClick={() => setActiveTab("exams")}
@@ -309,7 +311,7 @@ export const AdminDashboard = ({
             style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}
           >
             <Layers size={15} />
-            Available Exams ({exams.length})
+            {t("sidebar.available_exams", "Available Exams")} ({exams.length})
           </button>
         </div>
       </div>
@@ -320,15 +322,15 @@ export const AdminDashboard = ({
         <div 
           onClick={() => setActiveTab("students")}
           style={{ cursor: "pointer" }}
-          title="Click to view Enrolled Students"
+          title={t("sidebar.enrolled_students", "Enrolled Students")}
         >
           <StatCard
-            title="Enrolled Students"
+            title={t("sidebar.enrolled_students", "Enrolled Students")}
             value={students.length}
             icon={Users}
             color="indigo"
-            subtitle={`${approvedStudentsCount} Approved Candidates &bull; ${pendingStudentsCount} Pending`}
-            badgeText={pendingStudentsCount > 0 ? `${pendingStudentsCount} Verification Required` : "All Verified"}
+            subtitle={`${approvedStudentsCount} ${t("common.approved", "Approved Candidates")} • ${pendingStudentsCount} ${t("common.pending", "Pending")}`}
+            badgeText={pendingStudentsCount > 0 ? `${pendingStudentsCount} ${t("login.approval_required", "Verification Required")}` : t("landing.approved_badge", "All Verified")}
           />
         </div>
 
@@ -336,15 +338,15 @@ export const AdminDashboard = ({
         <div 
           onClick={() => setActiveTab("examiners")}
           style={{ cursor: "pointer" }}
-          title="Click to view Examiner Approvals"
+          title={t("sidebar.examiner_approvals", "Approval of Examiner")}
         >
           <StatCard
-            title="Approval of Examiner"
+            title={t("sidebar.examiner_approvals", "Approval of Examiner")}
             value={examiners.length}
             icon={ShieldCheck}
             color="purple"
-            subtitle={`${approvedExaminersCount} Active Faculty &bull; ${pendingExaminersCount} Pending Verification`}
-            badgeText={pendingExaminersCount > 0 ? `${pendingExaminersCount} Awaiting Approval` : "All Approved"}
+            subtitle={`${approvedExaminersCount} ${t("common.approved", "Active Faculty")} • ${pendingExaminersCount} ${t("common.pending", "Pending Verification")}`}
+            badgeText={pendingExaminersCount > 0 ? `${pendingExaminersCount} ${t("common.pending", "Awaiting Approval")}` : t("landing.approved_badge", "All Approved")}
           />
         </div>
 
@@ -352,15 +354,15 @@ export const AdminDashboard = ({
         <div 
           onClick={() => setActiveTab("exams")}
           style={{ cursor: "pointer" }}
-          title="Click to view Available Exams"
+          title={t("sidebar.available_exams", "Available Exams")}
         >
           <StatCard
-            title="Available Exams"
+            title={t("sidebar.available_exams", "Available Exams")}
             value={exams.length}
             icon={Layers}
             color="emerald"
-            subtitle={`${publishedExamsCount} Live in Student Portal &bull; ${draftExamsCount} Draft Papers`}
-            badgeText={publishedExamsCount > 0 ? `${publishedExamsCount} Published Live` : "No Live Exams"}
+            subtitle={`${publishedExamsCount} ${t("common.published", "Live in Student Portal")} • ${draftExamsCount} ${t("common.draft", "Draft Papers")}`}
+            badgeText={publishedExamsCount > 0 ? `${publishedExamsCount} ${t("common.published", "Published Live")}` : t("common.draft", "No Live Exams")}
           />
         </div>
       </div>
@@ -368,10 +370,10 @@ export const AdminDashboard = ({
       {/* 3. Pillar Selector Tab Navigation */}
       <div style={{ display: "flex", gap: "0.75rem", marginBottom: "2rem", flexWrap: "wrap", borderBottom: "1px solid var(--border-color)", paddingBottom: "1rem" }}>
         {[
-          { id: "all", label: "Unified Overview", icon: Sparkles, count: null },
-          { id: "students", label: "Enrolled Students", icon: Users, count: students.length, badge: pendingStudentsCount },
-          { id: "examiners", label: "Approval of Examiner", icon: ShieldCheck, count: examiners.length, badge: pendingExaminersCount },
-          { id: "exams", label: "Available Exams", icon: Layers, count: exams.length, badge: null }
+          { id: "all", label: t("admin.tab_overview", "Unified Overview"), icon: Sparkles, count: null },
+          { id: "students", label: t("sidebar.enrolled_students", "Enrolled Students"), icon: Users, count: students.length, badge: pendingStudentsCount },
+          { id: "examiners", label: t("sidebar.examiner_approvals", "Approval of Examiner"), icon: ShieldCheck, count: examiners.length, badge: pendingExaminersCount },
+          { id: "exams", label: t("sidebar.available_exams", "Available Exams"), icon: Layers, count: exams.length, badge: null }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -415,7 +417,7 @@ export const AdminDashboard = ({
                     border: "1px solid rgba(245, 158, 11, 0.5)"
                   }}
                 >
-                  {tab.badge} Pending
+                  {tab.badge} {t("common.pending", "Pending")}
                 </span>
               )}
             </button>
@@ -433,10 +435,10 @@ export const AdminDashboard = ({
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <Users size={22} color="#818cf8" />
                 <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0 }}>
-                  Enrolled Students
+                  {t("sidebar.enrolled_students", "Enrolled Students")}
                 </h2>
                 <span className="badge badge-role-student" style={{ fontSize: "0.78rem" }}>
-                  {students.length} Total Registered
+                  {students.length} {t("common.total", "Total Registered")}
                 </span>
               </div>
               <p style={{ fontSize: "0.9rem", color: "var(--text-subtle)", margin: "0.35rem 0 0" }}>
@@ -460,7 +462,7 @@ export const AdminDashboard = ({
                       color: studentStatusFilter === statusKey ? "#c7d2fe" : "var(--text-muted)"
                     }}
                   >
-                    {statusKey}
+                    {statusKey === "ALL" ? t("common.all", "ALL") : statusKey === "PENDING" ? t("common.pending", "PENDING") : statusKey === "APPROVED" ? t("common.approved", "APPROVED") : t("common.rejected", "REJECTED")}
                   </button>
                 ))}
               </div>
@@ -469,7 +471,7 @@ export const AdminDashboard = ({
                 <Search size={15} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)" }} />
                 <input
                   type="text"
-                  placeholder="Search students..."
+                  placeholder={t("common.search", "Search students...")}
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
                   style={{
@@ -491,12 +493,12 @@ export const AdminDashboard = ({
             <table className="custom-table">
               <thead>
                 <tr>
-                  <th>Student Candidate</th>
-                  <th>Register Number</th>
-                  <th>Department</th>
-                  <th>Status</th>
-                  <th>Registered Date</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                  <th>{t("admin.tab_students", "Student Candidate")}</th>
+                  <th>{t("modals.register_number", "Register Number")}</th>
+                  <th>{t("common.department", "Department")}</th>
+                  <th>{t("common.status", "Status")}</th>
+                  <th>{t("common.created_at", "Registered Date")}</th>
+                  <th style={{ textAlign: "right" }}>{t("common.actions", "Actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -521,7 +523,7 @@ export const AdminDashboard = ({
                         <StatusBadge status={student.approval_status} />
                       </td>
                       <td style={{ fontSize: "0.85rem", color: "var(--text-subtle)" }}>
-                        {student.created_at ? new Date(student.created_at).toLocaleDateString() : "N/A"}
+                        {student.created_at ? new Date(student.created_at).toLocaleDateString() : t("common.na", "N/A")}
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.45rem" }}>
@@ -547,7 +549,7 @@ export const AdminDashboard = ({
                                 }}
                                 style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
                               >
-                                Approve
+                                {t("admin.approve_btn", "Approve")}
                               </button>
                               <button
                                 className="btn btn-rose btn-sm"
@@ -558,7 +560,7 @@ export const AdminDashboard = ({
                                 }}
                                 style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem" }}
                               >
-                                Reject
+                                {t("admin.reject_btn", "Reject")}
                               </button>
                             </>
                           )}
@@ -584,7 +586,7 @@ export const AdminDashboard = ({
                 className="btn btn-secondary btn-sm"
                 style={{ fontSize: "0.85rem" }}
               >
-                View All {filteredStudents.length} Enrolled Students <ArrowRight size={14} />
+                View All {filteredStudents.length} {t("sidebar.enrolled_students", "Enrolled Students")} <ArrowRight size={14} />
               </button>
             </div>
           )}
@@ -599,15 +601,15 @@ export const AdminDashboard = ({
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <ShieldCheck size={22} color="#c084fc" />
                 <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0 }}>
-                  Approval of Examiner
+                  {t("sidebar.examiner_approvals", "Approval of Examiner")}
                 </h2>
                 {pendingExaminersCount > 0 ? (
                   <span className="badge badge-pending" style={{ fontSize: "0.78rem" }}>
-                    {pendingExaminersCount} Pending Review
+                    {pendingExaminersCount} {t("common.pending", "Pending Review")}
                   </span>
                 ) : (
                   <span className="badge badge-approved" style={{ fontSize: "0.78rem" }}>
-                    All Faculty Approved
+                    {t("landing.approved_badge", "All Faculty Approved")}
                   </span>
                 )}
               </div>
@@ -632,7 +634,7 @@ export const AdminDashboard = ({
                       color: examinerStatusFilter === statusKey ? "#e9d5ff" : "var(--text-muted)"
                     }}
                   >
-                    {statusKey}
+                    {statusKey === "ALL" ? t("common.all", "ALL") : statusKey === "PENDING" ? t("common.pending", "PENDING") : statusKey === "APPROVED" ? t("common.approved", "APPROVED") : t("common.rejected", "REJECTED")}
                   </button>
                 ))}
               </div>
@@ -641,7 +643,7 @@ export const AdminDashboard = ({
                 <Search size={15} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)" }} />
                 <input
                   type="text"
-                  placeholder="Search examiners..."
+                  placeholder={t("common.search", "Search examiners...")}
                   value={examinerSearch}
                   onChange={(e) => setExaminerSearch(e.target.value)}
                   style={{
@@ -663,11 +665,11 @@ export const AdminDashboard = ({
             <table className="custom-table">
               <thead>
                 <tr>
-                  <th>Faculty Examiner</th>
-                  <th>Department</th>
-                  <th>Credentials & Status</th>
-                  <th>Application Date</th>
-                  <th style={{ textAlign: "right" }}>Governance Actions</th>
+                  <th>{t("admin.examiner_col", "Faculty Examiner")}</th>
+                  <th>{t("admin.department_col", "Department")}</th>
+                  <th>{t("admin.status_col", "Credentials & Status")}</th>
+                  <th>{t("common.created_at", "Application Date")}</th>
+                  <th style={{ textAlign: "right" }}>{t("admin.actions_col", "Governance Actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -713,7 +715,7 @@ export const AdminDashboard = ({
                         <StatusBadge status={examiner.approval_status} />
                       </td>
                       <td style={{ fontSize: "0.85rem", color: "var(--text-subtle)" }}>
-                        {examiner.created_at ? new Date(examiner.created_at).toLocaleDateString() : "N/A"}
+                        {examiner.created_at ? new Date(examiner.created_at).toLocaleDateString() : t("common.na", "N/A")}
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.45rem" }}>
@@ -724,7 +726,7 @@ export const AdminDashboard = ({
                                 className="btn btn-emerald btn-sm"
                                 style={{ padding: "0.35rem 0.85rem", fontSize: "0.78rem" }}
                               >
-                                Approve Examiner
+                                {t("admin.approve_btn", "Approve Examiner")}
                               </button>
                               <button
                                 onClick={() => {
@@ -735,7 +737,7 @@ export const AdminDashboard = ({
                                 className="btn btn-rose btn-sm"
                                 style={{ padding: "0.35rem 0.85rem", fontSize: "0.78rem" }}
                               >
-                                Reject
+                                {t("admin.reject_btn", "Reject")}
                               </button>
                             </>
                           ) : (
@@ -747,7 +749,7 @@ export const AdminDashboard = ({
                               className="btn btn-secondary btn-sm"
                               style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
                             >
-                              <Eye size={13} /> Dossier
+                              <Eye size={13} /> {t("admin.inspect_btn", "Dossier")}
                             </button>
                           )}
                         </div>
@@ -772,7 +774,7 @@ export const AdminDashboard = ({
                 className="btn btn-secondary btn-sm"
                 style={{ fontSize: "0.85rem" }}
               >
-                View All {filteredExaminers.length} Examiner Approvals <ArrowRight size={14} />
+                View All {filteredExaminers.length} {t("sidebar.examiner_approvals", "Examiner Approvals")} <ArrowRight size={14} />
               </button>
             </div>
           )}
@@ -787,10 +789,10 @@ export const AdminDashboard = ({
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <Layers size={22} color="#34d399" />
                 <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0 }}>
-                  Available Exams
+                  {t("sidebar.available_exams", "Available Exams")}
                 </h2>
                 <span className="badge badge-approved" style={{ fontSize: "0.78rem" }}>
-                  {exams.length} Active Blueprints
+                  {exams.length} {t("common.active", "Active Blueprints")}
                 </span>
               </div>
               <p style={{ fontSize: "0.9rem", color: "var(--text-subtle)", margin: "0.35rem 0 0" }}>
@@ -814,7 +816,7 @@ export const AdminDashboard = ({
                       color: examStatusFilter === statusKey ? "#6ee7b7" : "var(--text-muted)"
                     }}
                   >
-                    {statusKey}
+                    {statusKey === "ALL" ? t("common.all", "ALL") : statusKey === "PUBLISHED" ? t("common.published", "PUBLISHED") : t("common.draft", "DRAFT")}
                   </button>
                 ))}
               </div>
@@ -823,7 +825,7 @@ export const AdminDashboard = ({
                 <Search size={15} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)" }} />
                 <input
                   type="text"
-                  placeholder="Search exams..."
+                  placeholder={t("examiner.search_exams_placeholder", "Search exams...")}
                   value={examSearch}
                   onChange={(e) => setExamSearch(e.target.value)}
                   style={{
@@ -849,7 +851,7 @@ export const AdminDashboard = ({
                   padding: "0.45rem 0.95rem"
                 }}
               >
-                <PlusCircle size={15} /> + Create Exam
+                <PlusCircle size={15} /> {t("examiner.create_exam_btn", "+ Create Exam")}
               </button>
             </div>
           </div>
@@ -859,7 +861,7 @@ export const AdminDashboard = ({
             <div style={{ textAlign: "center", padding: "3.5rem 2rem", border: "1.5px dashed var(--border-color)", borderRadius: "var(--radius-md)", color: "var(--text-muted)" }}>
               <Layers size={36} color="#818cf8" style={{ margin: "0 auto 0.75rem" }} />
               <div style={{ fontWeight: 800, color: "var(--text-main)", fontSize: "1.05rem", marginBottom: "0.35rem" }}>
-                No active examinations found
+                {t("examiner.no_exams_found", "No active examinations found")}
               </div>
               <p style={{ fontSize: "0.85rem", color: "var(--text-subtle)", margin: 0 }}>
                 Faculty examiners can configure new examinations or randomized papers.
@@ -898,22 +900,22 @@ export const AdminDashboard = ({
                       )}
                     </div>
                     <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", display: "flex", gap: "1rem", marginTop: "0.45rem", flexWrap: "wrap" }}>
-                      <span>⏱ {exam.duration_minutes} Mins</span>
+                      <span>⏱ {exam.duration_minutes} {t("common.mins", "Mins")}</span>
                       <span>&bull;</span>
-                      <span>🏆 {exam.total_marks} Marks</span>
+                      <span>🏆 {exam.total_marks} {t("common.marks", "Marks")}</span>
                       <span>&bull;</span>
-                      <span>📝 {exam.questions_count || exam.exam_questions?.length || 0} Questions</span>
+                      <span>📝 {exam.questions_count || exam.exam_questions?.length || 0} {t("common.questions", "Questions")}</span>
                     </div>
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", flexShrink: 0 }}>
                     {exam.status === "PUBLISHED" ? (
                       <span className="badge badge-approved" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                        <CheckCircle2 size={12} color="#34d399" /> Live in Student Portal
+                        <CheckCircle2 size={12} color="#34d399" /> {t("common.published", "Live in Student Portal")}
                       </span>
                     ) : (
                       <span className="badge badge-pending" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                        <Clock size={12} color="#fbbf24" /> Draft (Hidden)
+                        <Clock size={12} color="#fbbf24" /> {t("common.draft", "Draft (Hidden)")}
                       </span>
                     )}
 
@@ -922,7 +924,7 @@ export const AdminDashboard = ({
                       className={`btn btn-sm ${exam.status === "PUBLISHED" ? "btn-secondary" : "btn-emerald"}`}
                       style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem" }}
                     >
-                      {exam.status === "PUBLISHED" ? "To Draft" : "Publish Live"}
+                      {exam.status === "PUBLISHED" ? t("examiner.toggle_draft", "To Draft") : t("examiner.toggle_publish", "Publish Live")}
                     </button>
 
                     <button
@@ -930,7 +932,7 @@ export const AdminDashboard = ({
                       className="btn btn-secondary btn-sm"
                       style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
                     >
-                      <Users size={13} color="#818cf8" /> Candidates
+                      <Users size={13} color="#818cf8" /> {t("examiner.candidate_col", "Candidates")}
                     </button>
 
                     <button
@@ -981,7 +983,7 @@ export const AdminDashboard = ({
         isOpen={showApproveConfirm}
         title="Approve Student Candidate"
         message={`Are you sure you want to approve candidate "${selectedStudent?.name}" (${selectedStudent?.register_number})? Once approved, the student can log in and take available exams.`}
-        confirmText="Approve Candidate"
+        confirmText={t("admin.approve_btn", "Approve Candidate")}
         type="emerald"
         loading={actionLoading}
         onConfirm={handleApproveStudent}
@@ -993,7 +995,7 @@ export const AdminDashboard = ({
         isOpen={showRejectConfirm}
         title="Reject Student Registration"
         message={`Are you sure you want to reject registration for "${selectedStudent?.name}"?`}
-        confirmText="Reject Registration"
+        confirmText={t("admin.reject_btn", "Reject Registration")}
         type="rose"
         showReasonInput={true}
         reasonPlaceholder="e.g. Student ID does not match university registrar enrollment roster."
@@ -1021,7 +1023,7 @@ export const AdminDashboard = ({
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text-main)" }}>
-                  Reject Examiner Application
+                  {t("modals.reject_request", "Reject Examiner Application")}
                 </h3>
                 <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>
                   {selectedExaminer.name} ({selectedExaminer.email})
@@ -1034,13 +1036,13 @@ export const AdminDashboard = ({
             </p>
 
             <div className="form-group">
-              <label className="form-label">Rejection Reason *</label>
+              <label className="form-label">{t("modals.rejection_reason_label", "Rejection Reason *")}</label>
               <textarea
                 rows={3}
                 className="form-control"
                 value={examinerRejectionReason}
                 onChange={(e) => setExaminerRejectionReason(e.target.value)}
-                placeholder="Enter reason for rejection..."
+                placeholder={t("modals.rejection_reason_placeholder", "Enter reason for rejection...")}
                 style={{ resize: "vertical" }}
               />
             </div>
@@ -1052,7 +1054,7 @@ export const AdminDashboard = ({
                 className="btn btn-secondary"
                 disabled={actionLoading}
               >
-                Cancel
+                {t("common.cancel", "Cancel")}
               </button>
               <button
                 type="button"
@@ -1061,7 +1063,7 @@ export const AdminDashboard = ({
                 style={{ background: "linear-gradient(135deg, #e11d48, #f43f5e)" }}
                 disabled={actionLoading || !examinerRejectionReason.trim()}
               >
-                {actionLoading ? "Rejecting..." : "Reject Examiner"}
+                {actionLoading ? t("common.processing", "Rejecting...") : t("admin.reject_btn", "Reject Examiner")}
               </button>
             </div>
           </div>
@@ -1074,7 +1076,7 @@ export const AdminDashboard = ({
           <div className="modal-content" style={{ maxWidth: "560px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--text-main)" }}>
-                Examiner Dossier
+                {t("modals.student_dossier", "Examiner Dossier")}
               </h3>
               <StatusBadge status={selectedExaminer.approval_status} />
             </div>
@@ -1083,20 +1085,20 @@ export const AdminDashboard = ({
               <div className="glass-card" style={{ padding: "1rem", background: "rgba(30, 41, 59, 0.4)" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Name</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>{t("common.name", "Name")}</div>
                     <div style={{ fontWeight: 600, color: "var(--text-main)", fontSize: "0.95rem" }}>{selectedExaminer.name}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Role</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>{t("common.role", "Role")}</div>
                     <div style={{ fontWeight: 600, color: "var(--primary-light)", fontSize: "0.95rem" }}>{selectedExaminer.role}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Email</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>{t("common.email", "Email")}</div>
                     <div style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>{selectedExaminer.email}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Department</div>
-                    <div style={{ color: "var(--text-main)", fontSize: "0.9rem" }}>{selectedExaminer.department || "N/A"}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>{t("common.department", "Department")}</div>
+                    <div style={{ color: "var(--text-main)", fontSize: "0.9rem" }}>{selectedExaminer.department || t("common.na", "N/A")}</div>
                   </div>
                 </div>
               </div>
@@ -1129,7 +1131,7 @@ export const AdminDashboard = ({
                   className="btn btn-primary"
                   style={{ background: "linear-gradient(135deg, #059669, #10b981)" }}
                 >
-                  Approve Examiner
+                  {t("admin.approve_btn", "Approve Examiner")}
                 </button>
               )}
               <button
@@ -1137,7 +1139,7 @@ export const AdminDashboard = ({
                 onClick={() => setShowExaminerDetailModal(false)}
                 className="btn btn-secondary"
               >
-                Close
+                {t("common.close", "Close")}
               </button>
             </div>
           </div>

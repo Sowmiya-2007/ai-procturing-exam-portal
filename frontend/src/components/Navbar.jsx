@@ -1,10 +1,13 @@
 import React from "react";
 import { Cpu, LogOut, User, Sparkles, ExternalLink, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { RoleBadge, StatusBadge } from "./StatusBadge";
+import { LanguageSelector } from "./LanguageSelector";
 
 export const Navbar = ({ currentView, setCurrentView }) => {
   const { user, isAuthenticated, isStudent, isExaminer, isAdmin, logout } = useAuth();
+  const { t } = useLanguage();
 
   const handleBrandClick = () => {
     if (!isAuthenticated) {
@@ -71,17 +74,20 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 letterSpacing: "0.05em"
               }}
             >
-              INTELLIGENT
+              {t("navbar.intelligent_badge", null, "INTELLIGENT")}
             </span>
           </div>
           <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)", display: "block", marginTop: "0.1rem" }}>
-            College Examination & Evaluation Platform
+            {t("navbar.brand_sub", null, "College Examination & Evaluation Platform")}
           </span>
         </div>
       </div>
 
       {/* Right controls */}
-      <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
+        {/* Multilingual Selector */}
+        <LanguageSelector />
+
         {isAuthenticated && user ? (
           <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
             <div
@@ -131,11 +137,11 @@ export const Navbar = ({ currentView, setCurrentView }) => {
             <button
               onClick={logout}
               className="btn btn-secondary btn-sm"
-              title="Log Out"
+              title={t("navbar.logout", null, "Logout")}
               style={{ color: "#fb7185", borderColor: "rgba(244, 63, 94, 0.3)", padding: "0.55rem 1.15rem" }}
             >
               <LogOut size={16} />
-              Logout
+              {t("navbar.logout", null, "Logout")}
             </button>
           </div>
         ) : (
@@ -145,21 +151,21 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               className="btn btn-secondary btn-sm"
               style={{ padding: "0.55rem 1.15rem" }}
             >
-              Student Portal
+              {t("navbar.student_portal", null, "Student Portal")}
             </button>
             <button
               onClick={() => setCurrentView("student_register")}
               className="btn btn-primary btn-sm"
               style={{ padding: "0.55rem 1.25rem" }}
             >
-              Register
+              {t("navbar.register", null, "Register")}
             </button>
             <button
               onClick={() => setCurrentView("admin_login")}
               className="btn btn-secondary btn-sm"
               style={{ borderColor: "rgba(168, 85, 247, 0.4)", color: "#d8b4fe", padding: "0.55rem 1.2rem" }}
             >
-              Faculty / Admin Login
+              {t("navbar.faculty_login", null, "Faculty / Admin Login")}
             </button>
           </div>
         )}

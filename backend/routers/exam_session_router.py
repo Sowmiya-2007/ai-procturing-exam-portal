@@ -37,10 +37,16 @@ def calculate_integrity_score(events: List[ProctorEvent]) -> tuple[float, int, D
     Base score: 100.0%
     Deductions:
       - TAB_SWITCH: -5% per event
-      - WINDOW_BLUR: -4% per event
-      - FACE_ABSENT: -4% per event
+      - FULLSCREEN_EXIT: -5% per event
       - MULTIPLE_FACES: -10% per event
+      - FACE_ABSENT: -4% per event
+      - WINDOW_BLUR: -4% per event
       - GAZE_AWAY: -2% per event
+      - HEAD_TURN: -2% per event
+      - COPY_ATTEMPT: -3% per event
+      - PASTE_ATTEMPT: -3% per event
+      - CUT_ATTEMPT: -3% per event
+      - RIGHT_CLICK_ATTEMPT: -1% per event
     """
     score = 100.0
     breakdown: Dict[str, int] = {}
@@ -52,14 +58,22 @@ def calculate_integrity_score(events: List[ProctorEvent]) -> tuple[float, int, D
         
         if ev_type == ProctorEventType.TAB_SWITCH.value:
             score -= 5.0
-        elif ev_type == ProctorEventType.WINDOW_BLUR.value:
-            score -= 4.0
-        elif ev_type == ProctorEventType.FACE_ABSENT.value:
-            score -= 4.0
+        elif ev_type == ProctorEventType.FULLSCREEN_EXIT.value:
+            score -= 5.0
         elif ev_type == ProctorEventType.MULTIPLE_FACES.value:
             score -= 10.0
+        elif ev_type == ProctorEventType.FACE_ABSENT.value:
+            score -= 4.0
+        elif ev_type == ProctorEventType.WINDOW_BLUR.value:
+            score -= 4.0
         elif ev_type == ProctorEventType.GAZE_AWAY.value:
             score -= 2.0
+        elif ev_type == ProctorEventType.HEAD_TURN.value:
+            score -= 2.0
+        elif ev_type in (ProctorEventType.COPY_ATTEMPT.value, ProctorEventType.PASTE_ATTEMPT.value, ProctorEventType.CUT_ATTEMPT.value):
+            score -= 3.0
+        elif ev_type == ProctorEventType.RIGHT_CLICK_ATTEMPT.value:
+            score -= 1.0
         else:
             score -= 1.0
 
@@ -203,7 +217,13 @@ def start_exam_session(
             QuestionOptionSanitized(
                 id=opt.id,
                 question_id=opt.question_id,
-                option_text=opt.option_text
+                option_text=opt.option_text,
+                option_text_en=getattr(opt, "option_text_en", None) or opt.option_text,
+                option_text_ta=getattr(opt, "option_text_ta", None),
+                option_text_te=getattr(opt, "option_text_te", None),
+                option_text_hi=getattr(opt, "option_text_hi", None),
+                option_text_ml=getattr(opt, "option_text_ml", None),
+                option_text_kn=getattr(opt, "option_text_kn", None)
             )
             for opt in q.options
         ]
@@ -218,7 +238,25 @@ def start_exam_session(
             subject=q.subject,
             difficulty=q.difficulty,
             negative_marks=q.negative_marks or 0.0,
-            options=sanitized_opts
+            options=sanitized_opts,
+            question_text_en=getattr(q, "question_text_en", None) or q.question_text,
+            question_text_ta=getattr(q, "question_text_ta", None),
+            question_text_te=getattr(q, "question_text_te", None),
+            question_text_hi=getattr(q, "question_text_hi", None),
+            question_text_ml=getattr(q, "question_text_ml", None),
+            question_text_kn=getattr(q, "question_text_kn", None),
+            explanation_en=getattr(q, "explanation_en", None),
+            explanation_ta=getattr(q, "explanation_ta", None),
+            explanation_te=getattr(q, "explanation_te", None),
+            explanation_hi=getattr(q, "explanation_hi", None),
+            explanation_ml=getattr(q, "explanation_ml", None),
+            explanation_kn=getattr(q, "explanation_kn", None),
+            model_answer_en=getattr(q, "model_answer_en", None),
+            model_answer_ta=getattr(q, "model_answer_ta", None),
+            model_answer_te=getattr(q, "model_answer_te", None),
+            model_answer_hi=getattr(q, "model_answer_hi", None),
+            model_answer_ml=getattr(q, "model_answer_ml", None),
+            model_answer_kn=getattr(q, "model_answer_kn", None)
         )
         sanitized_questions.append(sanitized_q)
 
@@ -236,6 +274,24 @@ def start_exam_session(
         exam_title=exam.title,
         exam_subject=exam.subject,
         exam_description=exam.description,
+        exam_title_en=getattr(exam, "title_en", None) or exam.title,
+        exam_title_ta=getattr(exam, "title_ta", None),
+        exam_title_te=getattr(exam, "title_te", None),
+        exam_title_hi=getattr(exam, "title_hi", None),
+        exam_title_ml=getattr(exam, "title_ml", None),
+        exam_title_kn=getattr(exam, "title_kn", None),
+        exam_subject_en=getattr(exam, "subject_en", None) or exam.subject,
+        exam_subject_ta=getattr(exam, "subject_ta", None),
+        exam_subject_te=getattr(exam, "subject_te", None),
+        exam_subject_hi=getattr(exam, "subject_hi", None),
+        exam_subject_ml=getattr(exam, "subject_ml", None),
+        exam_subject_kn=getattr(exam, "subject_kn", None),
+        exam_description_en=getattr(exam, "description_en", None) or exam.description,
+        exam_description_ta=getattr(exam, "description_ta", None),
+        exam_description_te=getattr(exam, "description_te", None),
+        exam_description_hi=getattr(exam, "description_hi", None),
+        exam_description_ml=getattr(exam, "description_ml", None),
+        exam_description_kn=getattr(exam, "description_kn", None),
         duration_minutes=exam.duration_minutes,
         total_marks=total_m,
         passing_marks=getattr(exam, "passing_marks", None) or round(total_m * 0.4, 2),
@@ -295,7 +351,13 @@ def get_active_session(
             QuestionOptionSanitized(
                 id=opt.id,
                 question_id=opt.question_id,
-                option_text=opt.option_text
+                option_text=opt.option_text,
+                option_text_en=getattr(opt, "option_text_en", None) or opt.option_text,
+                option_text_ta=getattr(opt, "option_text_ta", None),
+                option_text_te=getattr(opt, "option_text_te", None),
+                option_text_hi=getattr(opt, "option_text_hi", None),
+                option_text_ml=getattr(opt, "option_text_ml", None),
+                option_text_kn=getattr(opt, "option_text_kn", None)
             )
             for opt in q.options
         ]
@@ -309,7 +371,25 @@ def get_active_session(
             subject=q.subject,
             difficulty=q.difficulty,
             negative_marks=q.negative_marks or 0.0,
-            options=sanitized_opts
+            options=sanitized_opts,
+            question_text_en=getattr(q, "question_text_en", None) or q.question_text,
+            question_text_ta=getattr(q, "question_text_ta", None),
+            question_text_te=getattr(q, "question_text_te", None),
+            question_text_hi=getattr(q, "question_text_hi", None),
+            question_text_ml=getattr(q, "question_text_ml", None),
+            question_text_kn=getattr(q, "question_text_kn", None),
+            explanation_en=getattr(q, "explanation_en", None),
+            explanation_ta=getattr(q, "explanation_ta", None),
+            explanation_te=getattr(q, "explanation_te", None),
+            explanation_hi=getattr(q, "explanation_hi", None),
+            explanation_ml=getattr(q, "explanation_ml", None),
+            explanation_kn=getattr(q, "explanation_kn", None),
+            model_answer_en=getattr(q, "model_answer_en", None),
+            model_answer_ta=getattr(q, "model_answer_ta", None),
+            model_answer_te=getattr(q, "model_answer_te", None),
+            model_answer_hi=getattr(q, "model_answer_hi", None),
+            model_answer_ml=getattr(q, "model_answer_ml", None),
+            model_answer_kn=getattr(q, "model_answer_kn", None)
         )
         sanitized_questions.append(sanitized_q)
 
@@ -327,6 +407,24 @@ def get_active_session(
         exam_title=exam.title,
         exam_subject=exam.subject,
         exam_description=exam.description,
+        exam_title_en=getattr(exam, "title_en", None) or exam.title,
+        exam_title_ta=getattr(exam, "title_ta", None),
+        exam_title_te=getattr(exam, "title_te", None),
+        exam_title_hi=getattr(exam, "title_hi", None),
+        exam_title_ml=getattr(exam, "title_ml", None),
+        exam_title_kn=getattr(exam, "title_kn", None),
+        exam_subject_en=getattr(exam, "subject_en", None) or exam.subject,
+        exam_subject_ta=getattr(exam, "subject_ta", None),
+        exam_subject_te=getattr(exam, "subject_te", None),
+        exam_subject_hi=getattr(exam, "subject_hi", None),
+        exam_subject_ml=getattr(exam, "subject_ml", None),
+        exam_subject_kn=getattr(exam, "subject_kn", None),
+        exam_description_en=getattr(exam, "description_en", None) or exam.description,
+        exam_description_ta=getattr(exam, "description_ta", None),
+        exam_description_te=getattr(exam, "description_te", None),
+        exam_description_hi=getattr(exam, "description_hi", None),
+        exam_description_ml=getattr(exam, "description_ml", None),
+        exam_description_kn=getattr(exam, "description_kn", None),
         duration_minutes=exam.duration_minutes,
         total_marks=total_m,
         passing_marks=getattr(exam, "passing_marks", None) or round(total_m * 0.4, 2),
@@ -377,17 +475,35 @@ def save_session_answer(
 
     now = datetime.now(timezone.utc)
     if not answer:
-        answer = Answer(
-            session_id=session.id,
-            question_id=payload.question_id,
-            selected_option_ids=payload.selected_option_ids,
-            text_answer=payload.text_answer,
-            image_url=payload.image_url,
-            is_flagged=payload.is_flagged if payload.is_flagged is not None else False,
-            created_at=now,
-            updated_at=now
-        )
-        db.add(answer)
+        try:
+            answer = Answer(
+                session_id=session.id,
+                question_id=payload.question_id,
+                selected_option_ids=payload.selected_option_ids,
+                text_answer=payload.text_answer,
+                image_url=payload.image_url,
+                is_flagged=payload.is_flagged if payload.is_flagged is not None else False,
+                created_at=now,
+                updated_at=now
+            )
+            db.add(answer)
+            db.commit()
+            db.refresh(answer)
+        except Exception:
+            db.rollback()
+            answer = db.query(Answer).filter(
+                Answer.session_id == session.id,
+                Answer.question_id == payload.question_id
+            ).first()
+            if answer:
+                answer.selected_option_ids = payload.selected_option_ids
+                answer.text_answer = payload.text_answer
+                answer.image_url = payload.image_url
+                if payload.is_flagged is not None:
+                    answer.is_flagged = payload.is_flagged
+                answer.updated_at = now
+                db.commit()
+                db.refresh(answer)
     else:
         answer.selected_option_ids = payload.selected_option_ids
         answer.text_answer = payload.text_answer
@@ -395,9 +511,8 @@ def save_session_answer(
         if payload.is_flagged is not None:
             answer.is_flagged = payload.is_flagged
         answer.updated_at = now
-
-    db.commit()
-    db.refresh(answer)
+        db.commit()
+        db.refresh(answer)
 
     return SaveAnswerResponse(
         success=True,

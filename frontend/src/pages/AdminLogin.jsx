@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import { Shield, Award, Lock, Mail, ArrowRight, AlertTriangle, AlertCircle, Clock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export const AdminLogin = ({ setCurrentView }) => {
   const { login } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -87,10 +89,10 @@ export const AdminLogin = ({ setCurrentView }) => {
             <Shield size={34} />
           </div>
           <h1 style={{ fontSize: "2.1rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.025em", marginBottom: "0.5rem" }}>
-            Faculty & Admin Portal
+            {t("login.admin_title", null, "Faculty & Admin Portal")}
           </h1>
           <p style={{ fontSize: "0.95rem", color: "var(--text-muted)", lineHeight: 1.55 }}>
-            Institutional administration and verified examiner assessment portal
+            {t("login.admin_sub", null, "Institutional administration and verified examiner assessment portal")}
           </p>
         </div>
 
@@ -123,7 +125,7 @@ export const AdminLogin = ({ setCurrentView }) => {
             )}
             <div style={{ fontSize: "0.95rem", lineHeight: 1.55 }}>
               <div style={{ fontWeight: 700, marginBottom: "0.25rem", color: statusAlert.type === "pending" ? "#fbbf24" : "#fb7185" }}>
-                {statusAlert.title}
+                {statusAlert.type === "pending" ? t("login.approval_required", null, "Approval Required") : (statusAlert.type === "rejected" ? t("login.access_denied", null, "Access Denied") : t("login.auth_failed", null, "Authentication Failed"))}
               </div>
               {statusAlert.message}
             </div>
@@ -133,7 +135,7 @@ export const AdminLogin = ({ setCurrentView }) => {
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom: "1.75rem" }}>
             <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-              Administrator / Examiner Email *
+              {t("login.admin_email_label", null, "Administrator / Examiner Email *")}
             </label>
             <input
               type="email"
@@ -148,7 +150,7 @@ export const AdminLogin = ({ setCurrentView }) => {
 
           <div className="form-group" style={{ marginBottom: "2rem" }}>
             <label className="form-label" style={{ fontSize: "0.925rem", marginBottom: "0.65rem" }}>
-              Password *
+              {t("login.password_label", null, "Password *")}
             </label>
             <input
               type="password"
@@ -172,14 +174,14 @@ export const AdminLogin = ({ setCurrentView }) => {
               background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)"
             }}
           >
-            {loading ? "Authenticating..." : "Sign In to Portal"}
+            {loading ? t("login.authenticating", null, "Authenticating...") : t("login.sign_in_admin", null, "Sign In to Portal")}
           </button>
         </form>
 
         {/* Quick Fill Credentials */}
         <div style={{ marginTop: "2.25rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border-color)" }}>
           <div style={{ fontSize: "0.8rem", textTransform: "uppercase", fontWeight: 700, color: "var(--text-subtle)", marginBottom: "0.85rem", textAlign: "center", letterSpacing: "0.05em" }}>
-            Test Login Accounts:
+            {t("login.test_login_accounts", null, "Test Login Accounts:")}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
             <button
@@ -189,7 +191,7 @@ export const AdminLogin = ({ setCurrentView }) => {
               style={{ color: "#d8b4fe", borderColor: "rgba(168, 85, 247, 0.45)", fontSize: "0.825rem", padding: "0.6rem 0.75rem", gap: "0.4rem" }}
               title="Admin account with full rights"
             >
-              <Shield size={15} /> Admin
+              <Shield size={15} /> {t("login.admin_tab", null, "Admin")}
             </button>
             <button
               type="button"
@@ -198,7 +200,7 @@ export const AdminLogin = ({ setCurrentView }) => {
               style={{ color: "#67e8f9", borderColor: "rgba(6, 182, 212, 0.45)", fontSize: "0.825rem", padding: "0.6rem 0.75rem", gap: "0.4rem" }}
               title="Approved Examiner (can access portal)"
             >
-              <Award size={15} /> Approved
+              <Award size={15} /> {t("login.approved_btn", null, "Approved")}
             </button>
             <button
               type="button"
@@ -207,13 +209,13 @@ export const AdminLogin = ({ setCurrentView }) => {
               style={{ color: "#fbbf24", borderColor: "rgba(245, 158, 11, 0.45)", fontSize: "0.825rem", padding: "0.6rem 0.75rem", gap: "0.4rem" }}
               title="Pending Examiner (tests gatekeeper block)"
             >
-              <Clock size={15} /> Pending
+              <Clock size={15} /> {t("login.pending_btn", null, "Pending")}
             </button>
           </div>
         </div>
 
         <div style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.95rem", color: "var(--text-muted)" }}>
-          Need to access student exams?{" "}
+          {t("login.need_student_access", null, "Need to access student exams?")}{" "}
           <button
             onClick={() => setCurrentView("student_login")}
             style={{
@@ -226,7 +228,7 @@ export const AdminLogin = ({ setCurrentView }) => {
               fontSize: "0.95rem"
             }}
           >
-            Go to Student Portal
+            {t("login.back_to_student_portal", null, "Go to Student Portal")}
           </button>
         </div>
       </div>

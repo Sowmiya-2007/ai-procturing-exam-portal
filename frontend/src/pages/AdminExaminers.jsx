@@ -6,10 +6,12 @@ import {
 } from "lucide-react";
 import { api } from "../services/api";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 import { StatusBadge } from "../components/StatusBadge";
 
 export const AdminExaminers = () => {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [examiners, setExaminers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -108,11 +110,11 @@ export const AdminExaminers = () => {
               <ShieldCheck size={22} />
             </div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-main)", margin: 0 }}>
-              Examiner Approval & Governance
+              {t("admin.examiners_page_title", null, "Examiner Approval & Governance")}
             </h1>
           </div>
           <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
-            Review, verify, approve, or reject faculty examiner credentials before question authoring privileges are unlocked.
+            {t("admin.examiners_page_sub", null, "Review, verify, approve, or reject faculty examiner credentials before question authoring privileges are unlocked.")}
           </p>
         </div>
 
@@ -123,7 +125,7 @@ export const AdminExaminers = () => {
           disabled={loading}
         >
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          Refresh List
+          {t("common.refresh", null, "Refresh List")}
         </button>
       </div>
 
@@ -133,10 +135,10 @@ export const AdminExaminers = () => {
           {/* Status Tabs */}
           <div style={{ display: "flex", gap: "0.5rem" }}>
             {[
-              { id: "ALL", label: "All Examiners", count: examiners.length },
-              { id: "PENDING", label: "Pending Review", count: pendingCount, highlight: true },
-              { id: "APPROVED", label: "Approved", count: approvedCount },
-              { id: "REJECTED", label: "Rejected", count: rejectedCount }
+              { id: "ALL", label: t("admin.tab_examiners", null, "All Examiners"), count: examiners.length },
+              { id: "PENDING", label: t("common.pending", null, "Pending Review"), count: pendingCount, highlight: true },
+              { id: "APPROVED", label: t("common.approved", null, "Approved"), count: approvedCount },
+              { id: "REJECTED", label: t("common.rejected", null, "Rejected"), count: rejectedCount }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -176,7 +178,7 @@ export const AdminExaminers = () => {
               <Search size={16} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)" }} />
               <input
                 type="text"
-                placeholder="Search examiner by name or email..."
+                placeholder={t("question_bank.search_placeholder", null, "Search examiner by name or email...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="form-control"
@@ -184,7 +186,7 @@ export const AdminExaminers = () => {
               />
             </div>
             <button type="submit" className="btn btn-secondary" style={{ padding: "0.5rem 0.85rem" }}>
-              Filter
+              {t("common.filter", null, "Filter")}
             </button>
           </form>
         </div>
@@ -195,12 +197,12 @@ export const AdminExaminers = () => {
         <table className="custom-table">
           <thead>
             <tr>
-              <th>Examiner</th>
-              <th>Email</th>
-              <th>Department</th>
-              <th>Status</th>
-              <th>Registered Date</th>
-              <th style={{ textAlign: "right" }}>Action</th>
+              <th>{t("admin.examiner_col", null, "Examiner")}</th>
+              <th>{t("admin.email_col", null, "Email")}</th>
+              <th>{t("admin.department_col", null, "Department")}</th>
+              <th>{t("admin.status_col", null, "Status")}</th>
+              <th>{t("common.created_at", null, "Registered Date")}</th>
+              <th style={{ textAlign: "right" }}>{t("admin.actions_col", null, "Action")}</th>
             </tr>
           </thead>
           <tbody>
@@ -208,13 +210,13 @@ export const AdminExaminers = () => {
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
                   <RefreshCw size={24} className="animate-spin" style={{ margin: "0 auto 0.5rem" }} />
-                  Loading examiners...
+                  {t("common.loading", null, "Loading examiners...")}
                 </td>
               </tr>
             ) : examiners.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
-                  No examiner accounts found matching the criteria.
+                  {t("admin.no_pending", null, "No examiner accounts found matching the criteria.")}
                 </td>
               </tr>
             ) : (
@@ -260,7 +262,7 @@ export const AdminExaminers = () => {
                     </div>
                   </td>
                   <td style={{ color: "var(--text-main)", fontSize: "0.85rem" }}>
-                    {examiner.department || "Academic Department"}
+                    {examiner.department || t("common.department", null, "Academic Department")}
                   </td>
                   <td>
                     <StatusBadge status={examiner.approval_status} />
@@ -289,7 +291,7 @@ export const AdminExaminers = () => {
                           }}
                         >
                           <CheckCircle size={14} />
-                          Approve
+                          {t("admin.approve_btn", null, "Approve")}
                         </button>
                         <button
                           onClick={() => openRejectModal(examiner)}
@@ -306,7 +308,7 @@ export const AdminExaminers = () => {
                           }}
                         >
                           <XCircle size={14} />
-                          Reject
+                          {t("admin.reject_btn", null, "Reject")}
                         </button>
                       </div>
                     ) : (
@@ -322,7 +324,7 @@ export const AdminExaminers = () => {
                         }}
                       >
                         <Eye size={14} />
-                        View
+                        {t("common.view", null, "View")}
                       </button>
                     )}
                   </td>
@@ -352,7 +354,7 @@ export const AdminExaminers = () => {
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text-main)" }}>
-                  Reject Examiner Application
+                  {t("modals.reject_request", null, "Reject Examiner Application")}
                 </h3>
                 <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>
                   {selectedExaminer.name} ({selectedExaminer.email})
@@ -361,17 +363,17 @@ export const AdminExaminers = () => {
             </div>
 
             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1.25rem" }}>
-              Please specify the reason for rejecting this examiner. The candidate will see this message upon login attempt.
+              {t("modals.rejection_reason_placeholder", null, "Please specify the reason for rejecting this examiner. The candidate will see this message upon login attempt.")}
             </p>
 
             <div className="form-group">
-              <label className="form-label">Rejection Reason *</label>
+              <label className="form-label">{t("modals.rejection_reason_label", null, "Rejection Reason *")}</label>
               <textarea
                 rows={4}
                 className="form-control"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Enter detailed reason for rejection..."
+                placeholder={t("modals.rejection_reason_placeholder", null, "Enter detailed reason for rejection...")}
                 style={{ resize: "vertical" }}
               />
             </div>
@@ -383,7 +385,7 @@ export const AdminExaminers = () => {
                 className="btn btn-secondary"
                 disabled={actionLoading === selectedExaminer.id}
               >
-                Cancel
+                {t("common.cancel", null, "Cancel")}
               </button>
               <button
                 type="button"
@@ -392,7 +394,7 @@ export const AdminExaminers = () => {
                 style={{ background: "linear-gradient(135deg, #e11d48, #f43f5e)" }}
                 disabled={actionLoading === selectedExaminer.id || !rejectionReason.trim()}
               >
-                {actionLoading === selectedExaminer.id ? "Rejecting..." : "Reject Examiner"}
+                {actionLoading === selectedExaminer.id ? t("common.processing", null, "Rejecting...") : t("modals.reject_request", null, "Reject Examiner")}
               </button>
             </div>
           </div>
@@ -405,7 +407,7 @@ export const AdminExaminers = () => {
           <div className="modal-content" style={{ maxWidth: "560px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--text-main)" }}>
-                Examiner Dossier
+                {t("modals.student_dossier", null, "Examiner Dossier")}
               </h3>
               <StatusBadge status={selectedExaminer.approval_status} />
             </div>
@@ -414,20 +416,20 @@ export const AdminExaminers = () => {
               <div className="glass-card" style={{ padding: "1rem", background: "rgba(30, 41, 59, 0.4)" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Name</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>{t("common.name", null, "Name")}</div>
                     <div style={{ fontWeight: 600, color: "var(--text-main)", fontSize: "0.95rem" }}>{selectedExaminer.name}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Role</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>{t("common.role", null, "Role")}</div>
                     <div style={{ fontWeight: 600, color: "var(--primary-light)", fontSize: "0.95rem" }}>{selectedExaminer.role}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Email</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>{t("common.email", null, "Email")}</div>
                     <div style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>{selectedExaminer.email}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>Department</div>
-                    <div style={{ color: "var(--text-main)", fontSize: "0.9rem" }}>{selectedExaminer.department || "N/A"}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)", textTransform: "uppercase", fontWeight: 700 }}>{t("common.department", null, "Department")}</div>
+                    <div style={{ color: "var(--text-main)", fontSize: "0.9rem" }}>{selectedExaminer.department || t("common.na", null, "N/A")}</div>
                   </div>
                 </div>
               </div>
@@ -441,7 +443,7 @@ export const AdminExaminers = () => {
                   color: "#fda4af"
                 }}>
                   <div style={{ fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                    <AlertTriangle size={15} /> Rejection Reason:
+                    <AlertTriangle size={15} /> {t("modals.rejection_reason_logged", null, "Rejection Reason:")}
                   </div>
                   <div style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>
                     {selectedExaminer.rejection_reason || "No specific reason provided."}
@@ -478,7 +480,7 @@ export const AdminExaminers = () => {
                   className="btn btn-primary"
                   style={{ background: "linear-gradient(135deg, #059669, #10b981)" }}
                 >
-                  Approve Examiner
+                  {t("admin.approve_btn", null, "Approve Examiner")}
                 </button>
               )}
               {selectedExaminer.approval_status === "APPROVED" && (
@@ -491,7 +493,7 @@ export const AdminExaminers = () => {
                   className="btn btn-secondary"
                   style={{ borderColor: "rgba(244, 63, 94, 0.4)", color: "#fda4af" }}
                 >
-                  Revoke / Reject
+                  {t("admin.reject_btn", null, "Revoke / Reject")}
                 </button>
               )}
               <button
@@ -499,7 +501,7 @@ export const AdminExaminers = () => {
                 onClick={() => setDetailModalOpen(false)}
                 className="btn btn-secondary"
               >
-                Close
+                {t("common.close", null, "Close")}
               </button>
             </div>
           </div>
