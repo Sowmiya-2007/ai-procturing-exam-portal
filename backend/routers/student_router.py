@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.core.database import get_db
 from app.models.user import User
 from app.models.question import Question
@@ -10,12 +10,16 @@ from app.models.result import Result
 from app.enums.enums import UserRole, ApprovalStatus, ExamStatus, SessionStatus
 from schemas import UserResponse, ExamResultDetailResponse
 from auth import get_current_user, require_approved_student
-from routers.exam_session_router import calculate_integrity_score
+from routers.exam_session_router import calculate_integrity_score, resolve_multilingual_field
 
 router = APIRouter(prefix="/api/student", tags=["Student Portal"], dependencies=[Depends(require_approved_student)])
 
 @router.get("/dashboard")
-def get_student_dashboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_student_dashboard(
+    language: Optional[str] = Query("en", description="Requested student language code (en, ta, te, hi, ml, kn)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     total_bank_questions = db.query(Question).count()
     
     # Query database exams including creator details
@@ -60,9 +64,9 @@ def get_student_dashboard(current_user: User = Depends(get_current_user), db: Se
         upcoming_exams.append({
             "id": ex.id,
             "code": f"EXAM-2026-CS{ex.id:02d}",
-            "title": ex.title,
-            "subject": ex.subject,
-            "description": ex.description or "Comprehensive proctored assessment.",
+            "title": resolve_multilingual_field(ex, "title", language),
+            "subject": resolve_multilingual_field(ex, "subject", language),
+            "description": resolve_multilingual_field(ex, "description", language) or "Comprehensive proctored assessment.",
             "title_en": getattr(ex, "title_en", None) or ex.title,
             "title_ta": getattr(ex, "title_ta", None),
             "title_te": getattr(ex, "title_te", None),
@@ -124,8 +128,8 @@ def get_student_dashboard(current_user: User = Depends(get_current_user), db: Se
         completed_results.append({
             "result_id": res.id,
             "exam_id": res.exam_id,
-            "exam_title": exam.title if exam else f"Exam #{res.exam_id}",
-            "exam_subject": exam.subject if exam else "General",
+            "exam_title": resolve_multilingual_field(exam, "title", language) if exam else f"Exam #{res.exam_id}",
+            "exam_subject": resolve_multilingual_field(exam, "subject", language) if exam else "General",
             "exam_title_en": getattr(exam, "title_en", None) or (exam.title if exam else f"Exam #{res.exam_id}"),
             "exam_title_ta": getattr(exam, "title_ta", None),
             "exam_title_te": getattr(exam, "title_te", None),
@@ -150,22 +154,80 @@ def get_student_dashboard(current_user: User = Depends(get_current_user), db: Se
             "integrity_score": integrity_score
         })
 
-    announcements = [
+    announcements_catalog = [
         {
             "id": 1,
-            "title": "AI Proctoring System Verification Active",
-            "content": "Webcam, audio level analysis, and full-screen lockdown are enabled for all official exams.",
+            "title_en": "AI Proctoring System Verification Active",
+            "title_ta": "AI கண்காணிப்பு அமைப்பு சரிபார்ப்பு செயலில் உள்ளது",
+            "title_te": "AI ప్రోక్టరింగ్ సిస్టమ్ ధృవీకరణ యాక్టివ్‌గా ఉంది",
+            "title_hi": "AI प्रॉक्टरिंग सिस्टम सत्यापन सक्रिय है",
+            "title_ml": "AI പ്രോക്ടറിംഗ് സിസ്റ്റം പരിശോധന സജീവമാണ്",
+            "title_kn": "AI ಪ್ರಾಕ್ಟರಿಂಗ್ ಸಿಸ್ಟಮ್ ಪರಿಶೀಲನೆ ಸಕ್ರಿಯವಾಗಿದೆ",
+            "content_en": "Webcam, audio level analysis, and full-screen lockdown are enabled for all official exams.",
+            "content_ta": "அனைத்து அதிகாரப்பூர்வ தேர்வுகளுக்கும் வெப்கேம், ஆடியோ அளவு பகுப்பாய்வு மற்றும் முழுத்திரை பூட்டுதல் இயக்கப்பட்டிருக்கும்.",
+            "content_te": "అన్ని అధికారిక పరీక్షల కోసం వెబ్‌క్యామ్, ఆడియో స్థాయి విశ్లేషణ మరియు పూర్తి స్క్రీన్ లాక్‌డౌన్ ప్రారంభించబడ్డాయి.",
+            "content_hi": "सभी आधिकारिक परीक्षाओं के लिए वेबकैम, ऑडियो स्तर विश्लेषण और पूर्ण-स्क्रीन लॉकडाउन सक्षम हैं।",
+            "content_ml": "എല്ലാ ഔദ്യോഗിക പരീക്ഷകൾക്കും വെബ്‌ക്യാം, ഓഡിയോ ലെവൽ വിശകലനം, പൂർണ്ണ സ്‌ക്രീൻ ലോക്ക്ഡൗൺ എന്നിവ പ്രവർത്തനക്ഷമമാക്കിയിരിക്കുന്നു.",
+            "content_kn": "ಎಲ್ಲಾ ಅಧಿಕೃತ ಪರೀಕ್ಷೆಗಳಿಗಾಗಿ ವೆಬ್‌ಕ್ಯಾಮ್, ಆಡಿಯೊ ಮಟ್ಟದ ವಿಶ್ಲೇಷಣೆ ಮತ್ತು ಪೂರ್ಣ-ಪರದೆಯ ಲಾಕ್‌ಡೌನ್ ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ.",
             "date": "2026-09-01",
-            "tag": "Important"
+            "tag_en": "Important",
+            "tag_ta": "முக்கியமானது",
+            "tag_te": "ముఖ్యం",
+            "tag_hi": "महत्वपूर्ण",
+            "tag_ml": "പ്രധാനം",
+            "tag_kn": "ಮುಖ್ಯವಾದದ್ದು"
         },
         {
             "id": 2,
-            "title": "Faculty Audit & Scorecard Release Policy",
-            "content": "Submitted exam scorecards and detailed solutions are published directly to your portal upon faculty examiner verification.",
+            "title_en": "Faculty Audit & Scorecard Release Policy",
+            "title_ta": "பேராசிரியர் தணிக்கை & மதிப்பெண் அட்டை வெளியீட்டுக் கொள்கை",
+            "title_te": "ఫ్యాకల్టీ ఆడిట్ & స్కోర్‌కార్డ్ విడుదల విధానం",
+            "title_hi": "संकाय ऑडिट और स्कोरकार्ड जारी करने की नीति",
+            "title_ml": "ഫാക്കൽറ്റി ഓഡിറ്റും സ്കോർകാർഡ് റിലീസ് നയവും",
+            "title_kn": "ಅಧ್ಯಾಪಕರ ಲೆಕ್ಕಪರಿಶೋಧನೆ ಮತ್ತು ಸ್ಕೋರ್‌ಕಾರ್ಡ್ ಬಿಡುಗಡೆ ನೀತಿ",
+            "content_en": "Submitted exam scorecards and detailed solutions are published directly to your portal upon faculty examiner verification.",
+            "content_ta": "சமர்ப்பிக்கப்பட்ட தேர்வு மதிப்பெண் அட்டைகள் மற்றும் விரிவான விடைகள் பேராசிரியர் தேர்வாளர் சரிபார்த்தவுடன் உங்கள் தளத்தில் நேரடியாக வெளியிடப்படும்.",
+            "content_te": "సమర్పించిన పరీక్ష స్కోర్‌కార్డ్‌లు మరియు వివరణాత్మక పరిష్కారాలు ఫ్యాకల్టీ ఎగ్జామినర్ ధృవీకరణ తర్వాత నేరుగా మీ పోర్టల్‌లో ప్రచురించబడతాయి.",
+            "content_hi": "जमा किए गए परीक्षा स्कोरकार्ड और विस्तृत समाधान संकाय परीक्षक सत्यापन के बाद सीधे आपके पोर्टल पर प्रकाशित किए जाते हैं।",
+            "content_ml": "സമർപ്പിച്ച പരീക്ഷാ സ്കോർകാർഡുകളും വിശദമായ പരിഹാരങ്ങളും ഫാക്കൽറ്റി എക്സാമിനറുടെ പരിശോധനയ്ക്ക് ശേഷം നേരിട്ട് നിങ്ങളുടെ പോർട്ടലിൽ പ്രസിദ്ധീകരിക്കും.",
+            "content_kn": "ಸಲ್ಲಿಸಿದ ಪರೀಕ್ಷೆಯ ಸ್ಕೋರ್‌ಕಾರ್ಡ್‌ಗಳು ಮತ್ತು ವಿವರವಾದ ಪರಿಹಾರಗಳನ್ನು ಅಧ್ಯಾಪಕ ಪರೀಕ್ಷಕರ ಪರಿಶೀಲನೆಯ ನಂತರ ನೇರವಾಗಿ ನಿಮ್ಮ ಪೋರ್ಟಲ್‌ನಲ್ಲಿ ಪ್ರಕಟಿಸಲಾಗುತ್ತದೆ.",
             "date": "2026-09-02",
-            "tag": "Examinations"
+            "tag_en": "Examinations",
+            "tag_ta": "தேர்வுகள்",
+            "tag_te": "పరీక్షలు",
+            "tag_hi": "परीक्षाएं",
+            "tag_ml": "പരീക്ഷകൾ",
+            "tag_kn": "ಪರೀಕ್ಷೆಗಳು"
         }
     ]
+
+    announcements = []
+    for ann in announcements_catalog:
+        announcements.append({
+            "id": ann["id"],
+            "title": ann.get(f"title_{language}") or ann["title_en"],
+            "content": ann.get(f"content_{language}") or ann["content_en"],
+            "tag": ann.get(f"tag_{language}") or ann["tag_en"],
+            "title_en": ann["title_en"],
+            "title_ta": ann["title_ta"],
+            "title_te": ann["title_te"],
+            "title_hi": ann["title_hi"],
+            "title_ml": ann["title_ml"],
+            "title_kn": ann["title_kn"],
+            "content_en": ann["content_en"],
+            "content_ta": ann["content_ta"],
+            "content_te": ann["content_te"],
+            "content_hi": ann["content_hi"],
+            "content_ml": ann["content_ml"],
+            "content_kn": ann["content_kn"],
+            "tag_en": ann["tag_en"],
+            "tag_ta": ann["tag_ta"],
+            "tag_te": ann["tag_te"],
+            "tag_hi": ann["tag_hi"],
+            "tag_ml": ann["tag_ml"],
+            "tag_kn": ann["tag_kn"],
+            "date": ann["date"]
+        })
 
     return {
         "student": {
@@ -187,11 +249,12 @@ def get_student_dashboard(current_user: User = Depends(get_current_user), db: Se
 
 @router.get("/results")
 def get_student_results(
+    language: Optional[str] = Query("en", description="Requested student language code (en, ta, te, hi, ml, kn)"),
     current_user: User = Depends(require_approved_student),
     db: Session = Depends(get_db)
 ):
     """
-    Get all past examination scorecards and proctoring summaries for current student.
+    Get all past examination scorecards and proctoring summaries for current student in chosen language.
     """
     student_results = db.query(Result).options(
         joinedload(Result.exam)
@@ -216,8 +279,8 @@ def get_student_results(
         output.append({
             "result_id": res.id,
             "exam_id": res.exam_id,
-            "exam_title": res.exam.title if res.exam else f"Exam #{res.exam_id}",
-            "exam_subject": res.exam.subject if res.exam else "General",
+            "exam_title": resolve_multilingual_field(res.exam, "title", language) if res.exam else f"Exam #{res.exam_id}",
+            "exam_subject": resolve_multilingual_field(res.exam, "subject", language) if res.exam else "General",
             "exam_title_en": getattr(res.exam, "title_en", None) or (res.exam.title if res.exam else f"Exam #{res.exam_id}"),
             "exam_title_ta": getattr(res.exam, "title_ta", None),
             "exam_title_te": getattr(res.exam, "title_te", None),

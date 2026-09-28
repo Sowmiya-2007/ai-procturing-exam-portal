@@ -348,9 +348,6 @@ def update_question(
     if not q:
         raise HTTPException(status_code=404, detail="Question not found.")
 
-    if current_user.role != UserRole.ADMIN and q.created_by != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only modify questions created by yourself.")
-
     if payload.question_text is not None:
         q.question_text = payload.question_text.strip()
         q_trans = translate_to_all_languages(q.question_text)
@@ -481,9 +478,6 @@ def delete_question(
     q = db.query(Question).filter(Question.id == question_id).first()
     if not q:
         raise HTTPException(status_code=404, detail="Question not found.")
-
-    if current_user.role != UserRole.ADMIN and q.created_by != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only delete questions created by yourself.")
 
     db.delete(q)
     db.commit()

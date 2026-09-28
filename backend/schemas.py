@@ -633,6 +633,28 @@ class QuestionResultBreakdown(BaseModel):
     ai_feedback: Optional[str] = None
     examiner_feedback: Optional[str] = None
 
+    # Multilingual question fields
+    question_text_en: Optional[str] = None
+    question_text_ta: Optional[str] = None
+    question_text_te: Optional[str] = None
+    question_text_hi: Optional[str] = None
+    question_text_ml: Optional[str] = None
+    question_text_kn: Optional[str] = None
+
+    explanation_en: Optional[str] = None
+    explanation_ta: Optional[str] = None
+    explanation_te: Optional[str] = None
+    explanation_hi: Optional[str] = None
+    explanation_ml: Optional[str] = None
+    explanation_kn: Optional[str] = None
+
+    model_answer_en: Optional[str] = None
+    model_answer_ta: Optional[str] = None
+    model_answer_te: Optional[str] = None
+    model_answer_hi: Optional[str] = None
+    model_answer_ml: Optional[str] = None
+    model_answer_kn: Optional[str] = None
+
 class ProctoringSummary(BaseModel):
     total_events: int
     integrity_score: float
@@ -665,6 +687,35 @@ class ExamResultDetailResponse(BaseModel):
     correct_count: int
     question_breakdown: List[QuestionResultBreakdown] = Field(default_factory=list)
     proctoring_summary: ProctoringSummary
+
+    # Multilingual Exam Header Fields
+    exam_title_en: Optional[str] = None
+    exam_title_ta: Optional[str] = None
+    exam_title_te: Optional[str] = None
+    exam_title_hi: Optional[str] = None
+    exam_title_ml: Optional[str] = None
+    exam_title_kn: Optional[str] = None
+
+    exam_subject_en: Optional[str] = None
+    exam_subject_ta: Optional[str] = None
+    exam_subject_te: Optional[str] = None
+    exam_subject_hi: Optional[str] = None
+    exam_subject_ml: Optional[str] = None
+    exam_subject_kn: Optional[str] = None
+
+    exam_description_en: Optional[str] = None
+    exam_description_ta: Optional[str] = None
+    exam_description_te: Optional[str] = None
+    exam_description_hi: Optional[str] = None
+    exam_description_ml: Optional[str] = None
+    exam_description_kn: Optional[str] = None
+
+    exam_instructions_en: Optional[str] = None
+    exam_instructions_ta: Optional[str] = None
+    exam_instructions_te: Optional[str] = None
+    exam_instructions_hi: Optional[str] = None
+    exam_instructions_ml: Optional[str] = None
+    exam_instructions_kn: Optional[str] = None
     
     # Approval & Publishing status
     is_approved: bool = False

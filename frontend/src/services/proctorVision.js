@@ -288,11 +288,11 @@ export function analyzeVideoFrame(videoElement, landmarker, timestampMs = perfor
       if (yawRatio < 0.35) {
         headPose = "LEFT";
         headStatus = "Turned Left";
-        isHeadTurned = true;
+        isHeadTurned = false; // Normal head turn left is permitted - not a violation
       } else if (yawRatio > 2.85) {
         headPose = "RIGHT";
         headStatus = "Turned Right";
-        isHeadTurned = true;
+        isHeadTurned = false; // Normal head turn right is permitted - not a violation
       }
     }
 
@@ -301,11 +301,11 @@ export function analyzeVideoFrame(videoElement, landmarker, timestampMs = perfor
       const distChin = Math.abs(chin.y - nose.y);
       const pitchRatio = distForehead / Math.max(0.001, distChin);
 
-      if (pitchRatio < 0.35) {
+      if (pitchRatio < 0.25) {
         headPose = "UP";
         headStatus = "Tilted Up";
         isHeadTurned = true;
-      } else if (pitchRatio > 2.40) {
+      } else if (pitchRatio > 2.80) {
         headPose = "DOWN";
         headStatus = "Tilted Down";
         isHeadTurned = true;
@@ -317,7 +317,7 @@ export function analyzeVideoFrame(videoElement, landmarker, timestampMs = perfor
       const deltaX = rightEyeOuter.x - leftEyeOuter.x;
       const rollAngle = Math.atan2(deltaY, deltaX);
 
-      if (Math.abs(rollAngle) > 0.45) {
+      if (Math.abs(rollAngle) > 0.55) {
         headPose = "TILTED";
         headStatus = "Head Tilted";
         isHeadTurned = true;
@@ -345,12 +345,12 @@ export function analyzeVideoFrame(videoElement, landmarker, timestampMs = perfor
 
         if (avgIrisPos < 0.20) {
           gaze = "LOOKING_AWAY_LEFT";
-          gazeStatus = "Looking Away (Left)";
-          isGazeAway = true;
+          gazeStatus = "Looking Left";
+          isGazeAway = false; // Glancing left is permitted - not a violation
         } else if (avgIrisPos > 0.80) {
           gaze = "LOOKING_AWAY_RIGHT";
-          gazeStatus = "Looking Away (Right)";
-          isGazeAway = true;
+          gazeStatus = "Looking Right";
+          isGazeAway = false; // Glancing right is permitted - not a violation
         }
       }
     }
@@ -459,3 +459,123 @@ export function createAudioMonitor(stream, onLevelChange) {
     return { stop: () => {} };
   }
 }
+
+/**
+ * Draw Real-Time AI Proctor Vision Landmarks & Bounding Box on Canvas Overlay
+ * @param {HTMLCanvasElement} canvas 
+ * @param {Object} analysis Result from analyzeVideoFrame
+ * @param {boolean} isMirrored If video is mirrored horizontally
+ */
+export function drawProctorOverlay(canvas, analysis, isMirrored = true) {
+  if (!canvas || !analysis) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  if (!analysis.detectionSuccess || analysis.faceCount === 0) {
+    // Red perimeter indicator for face absence
+    ctx.strokeStyle = "rgba(239, 68, 68, 0.7)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(4, 4, w - 8, h - 8);
+    return;
+  }
+
+  // Multiple Faces Detected
+  if (analysis.isMultipleFaces && analysis.faceBoundingBox) {
+    const box = analysis.faceBoundingBox;
+    const boxX = isMirrored ? (1 - box.maxX) * w : box.minX * w;
+    const boxY = box.minY * h;
+    const boxW = box.width * w;
+    const boxH = box.height * h;
+
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = "rgba(239, 68, 68, 0.6)";
+    ctx.shadowBlur = 8;
+    ctx.strokeRect(boxX, boxY, boxW, boxH);
+    ctx.shadowBlur = 0;
+
+    // Badge
+    ctx.fillStyle = "#ef4444";
+    ctx.fillRect(boxX, Math.max(0, boxY - 20), Math.min(boxW, 140), 20);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 10px sans-serif";
+    ctx.fillText(`⚠ MULTIPLE FACES (${analysis.faceCount})`, boxX + 4, Math.max(14, boxY - 6));
+    return;
+  }
+
+  // Single Face Normal/Gaze
+  if (analysis.faceCount === 1 && analysis.landmarks) {
+    const box = analysis.faceBoundingBox;
+    const isWarn = analysis.isLookingAway;
+    const themeColor = isWarn ? "#f59e0b" : "#10b981";
+    const shadowColor = isWarn ? "rgba(245, 158, 11, 0.5)" : "rgba(16, 185, 129, 0.5)";
+
+    // 1. Draw subtle facial landmark points
+    ctx.fillStyle = isWarn ? "rgba(245, 158, 11, 0.65)" : "rgba(52, 211, 153, 0.65)";
+    const keyIndices = [
+      1, 4, 10, 152, 234, 454, // Nose, forehead, chin, cheeks
+      33, 133, 159, 145,       // Left eye
+      263, 362, 386, 374,      // Right eye
+      61, 291, 0, 17           // Mouth
+    ];
+
+    for (const idx of keyIndices) {
+      const pt = analysis.landmarks[idx];
+      if (pt) {
+        const px = isMirrored ? (1 - pt.x) * w : pt.x * w;
+        const py = pt.y * h;
+        ctx.beginPath();
+        ctx.arc(px, py, 1.8, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+
+    // Iris points
+    const leftIris = analysis.landmarks[468];
+    const rightIris = analysis.landmarks[473];
+    ctx.fillStyle = "#38bdf8";
+    if (leftIris) {
+      const lx = isMirrored ? (1 - leftIris.x) * w : leftIris.x * w;
+      ctx.beginPath();
+      ctx.arc(lx, leftIris.y * h, 2.5, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+    if (rightIris) {
+      const rx = isMirrored ? (1 - rightIris.x) * w : rightIris.x * w;
+      ctx.beginPath();
+      ctx.arc(rx, rightIris.y * h, 2.5, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    // 2. Bounding Box
+    if (box) {
+      const boxX = isMirrored ? (1 - box.maxX) * w : box.minX * w;
+      const boxY = box.minY * h;
+      const boxW = box.width * w;
+      const boxH = box.height * h;
+
+      ctx.strokeStyle = themeColor;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = shadowColor;
+      ctx.shadowBlur = 6;
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+      ctx.shadowBlur = 0;
+
+      // Status Tag above Box
+      const tagText = isWarn ? `⚠ ${analysis.headStatus}` : "✓ Verified Candidate";
+      ctx.font = "bold 10px sans-serif";
+      const textWidth = ctx.measureText(tagText).width;
+      const badgeW = Math.max(textWidth + 12, 100);
+
+      ctx.fillStyle = themeColor;
+      ctx.fillRect(boxX, Math.max(0, boxY - 18), badgeW, 18);
+      ctx.fillStyle = isWarn ? "#000000" : "#ffffff";
+      ctx.fillText(tagText, boxX + 6, Math.max(13, boxY - 5));
+    }
+  }
+}
+

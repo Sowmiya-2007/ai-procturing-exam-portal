@@ -207,21 +207,15 @@ TRANSLATION_MAP = {
     }
 }
 
+from services.translation_service import translate_text
+
 def translate_fallback(text: str, lang: str) -> str:
     if not text:
         return ""
     trimmed = text.strip()
     if trimmed in TRANSLATION_MAP and lang in TRANSLATION_MAP[trimmed]:
         return TRANSLATION_MAP[trimmed][lang]
-    
-    prefixes = {
-        "ta": "[தமிழ்] ",
-        "te": "[తెలుగు] ",
-        "hi": "[हिन्दी] ",
-        "ml": "[മലയാളം] ",
-        "kn": "[ಕನ್ನಡ] "
-    }
-    return f"{prefixes.get(lang, '')}{text}"
+    return translate_text(trimmed, source_lang="en", target_lang=lang)
 
 def run_migration():
     db = SessionLocal()

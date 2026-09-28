@@ -38,7 +38,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
     const loadResult = async () => {
       try {
         setLoading(true);
-        const data = await api.getSessionResult(sessionToken);
+        const data = await api.getSessionResult(sessionToken, language);
         if (isMounted) {
           setResultData(data);
         }
@@ -56,7 +56,7 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
     return () => {
       isMounted = false;
     };
-  }, [sessionToken]);
+  }, [sessionToken, language]);
 
   const handlePrint = () => {
     window.print();
@@ -104,8 +104,8 @@ export const ExamResultView = ({ sessionToken, onBackToDashboard }) => {
     return `${mins}m ${s}s`;
   };
 
-  const displayExamTitle = translateContent(exam_title, language);
-  const displayExamSubject = translateContent(exam_subject, language);
+  const displayExamTitle = resultData[`exam_title_${language}`] || translateContent(exam_title, language);
+  const displayExamSubject = resultData[`exam_subject_${language}`] || translateContent(exam_subject, language);
 
   // If student and result is not approved yet: show Preliminary Scorecard + Locked Deep Breakdown
   if (isStudent && !is_approved) {

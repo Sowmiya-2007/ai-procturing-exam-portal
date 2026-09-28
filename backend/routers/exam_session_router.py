@@ -50,7 +50,7 @@ def calculate_integrity_score(events: List[ProctorEvent]) -> tuple[float, int, D
     """
     score = 100.0
     breakdown: Dict[str, int] = {}
-    violations_count = len(events)
+    violations_count = 0
     
     for ev in events:
         ev_type = ev.event_type.value if hasattr(ev.event_type, "value") else str(ev.event_type)
@@ -58,24 +58,34 @@ def calculate_integrity_score(events: List[ProctorEvent]) -> tuple[float, int, D
         
         if ev_type == ProctorEventType.TAB_SWITCH.value:
             score -= 5.0
+            violations_count += 1
         elif ev_type == ProctorEventType.FULLSCREEN_EXIT.value:
             score -= 5.0
+            violations_count += 1
         elif ev_type == ProctorEventType.MULTIPLE_FACES.value:
             score -= 10.0
+            violations_count += 1
         elif ev_type == ProctorEventType.FACE_ABSENT.value:
             score -= 4.0
+            violations_count += 1
         elif ev_type == ProctorEventType.WINDOW_BLUR.value:
             score -= 4.0
+            violations_count += 1
         elif ev_type == ProctorEventType.GAZE_AWAY.value:
             score -= 2.0
+            violations_count += 1
         elif ev_type == ProctorEventType.HEAD_TURN.value:
-            score -= 2.0
+            # Turning head left or right is permitted and not penalized
+            pass
         elif ev_type in (ProctorEventType.COPY_ATTEMPT.value, ProctorEventType.PASTE_ATTEMPT.value, ProctorEventType.CUT_ATTEMPT.value):
             score -= 3.0
+            violations_count += 1
         elif ev_type == ProctorEventType.RIGHT_CLICK_ATTEMPT.value:
             score -= 1.0
+            violations_count += 1
         else:
             score -= 1.0
+            violations_count += 1
 
     integrity = max(10.0, min(100.0, round(score, 1)))
     return integrity, violations_count, breakdown
@@ -138,15 +148,36 @@ def evaluate_subjective_answer(text: Optional[str], model_answer: Optional[str],
     return awarded, feedback
 
 
+def resolve_multilingual_field(obj: Any, field_prefix: str, lang: Optional[str] = "en") -> str:
+    """
+    Resolve localized content for a given field prefix.
+    If requested language is present and non-empty, returns that translation.
+    Otherwise safely falls back to English (_en or base field).
+    """
+    if not obj:
+        return ""
+    clean_lang = (lang or "en").lower().strip()
+    if clean_lang != "en":
+        val = getattr(obj, f"{field_prefix}_{clean_lang}", None)
+        if val and str(val).strip():
+            return str(val)
+    val_en = getattr(obj, f"{field_prefix}_en", None)
+    if val_en and str(val_en).strip():
+        return str(val_en)
+    raw_val = getattr(obj, field_prefix, "")
+    return str(raw_val) if raw_val is not None else ""
+
+
 @router.post("/{exam_id}/start", response_model=ExamSessionStartResponse)
 def start_exam_session(
     exam_id: int,
+    language: Optional[str] = Query("en", description="Requested student language code (en, ta, te, hi, ml, kn)"),
     current_user: User = Depends(require_approved_student),
     db: Session = Depends(get_db)
 ):
     """
     Start or resume an active examination session for an approved student.
-    Returns sanitized questions (without answers or guidelines) and session token.
+    Returns sanitized questions (without answers or guidelines) and session token in requested language.
     """
     exam = db.query(Exam).options(
         joinedload(Exam.exam_questions).joinedload(ExamQuestion.question).joinedload(Question.options)
@@ -217,7 +248,7 @@ def start_exam_session(
             QuestionOptionSanitized(
                 id=opt.id,
                 question_id=opt.question_id,
-                option_text=opt.option_text,
+                option_text=resolve_multilingual_field(opt, "option_text", language),
                 option_text_en=getattr(opt, "option_text_en", None) or opt.option_text,
                 option_text_ta=getattr(opt, "option_text_ta", None),
                 option_text_te=getattr(opt, "option_text_te", None),
@@ -233,7 +264,7 @@ def start_exam_session(
             question_id=q.id,
             order=eq.question_order or (idx + 1),
             marks=eq.marks or q.max_marks,
-            question_text=q.question_text,
+            question_text=resolve_multilingual_field(q, "question_text", language),
             question_type=q.question_type,
             subject=q.subject,
             difficulty=q.difficulty,
@@ -271,9 +302,9 @@ def start_exam_session(
         session_id=session.id,
         session_token=session.session_token,
         exam_id=exam.id,
-        exam_title=exam.title,
-        exam_subject=exam.subject,
-        exam_description=exam.description,
+        exam_title=resolve_multilingual_field(exam, "title", language),
+        exam_subject=resolve_multilingual_field(exam, "subject", language),
+        exam_description=resolve_multilingual_field(exam, "description", language),
         exam_title_en=getattr(exam, "title_en", None) or exam.title,
         exam_title_ta=getattr(exam, "title_ta", None),
         exam_title_te=getattr(exam, "title_te", None),
@@ -315,12 +346,13 @@ def start_exam_session(
 @router.get("/sessions/{session_token}/active", response_model=ExamSessionStartResponse)
 def get_active_session(
     session_token: str,
+    language: Optional[str] = Query("en", description="Requested student language code (en, ta, te, hi, ml, kn)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Resume an active examination session using session token.
-    Accurately computes server-side remaining time based on server clock.
+    Accurately computes server-side remaining time based on server clock and returns content in chosen language.
     """
     session = db.query(ExamSession).options(
         joinedload(ExamSession.exam).joinedload(Exam.exam_questions).joinedload(ExamQuestion.question).joinedload(Question.options)
@@ -357,7 +389,7 @@ def get_active_session(
             QuestionOptionSanitized(
                 id=opt.id,
                 question_id=opt.question_id,
-                option_text=opt.option_text,
+                option_text=resolve_multilingual_field(opt, "option_text", language),
                 option_text_en=getattr(opt, "option_text_en", None) or opt.option_text,
                 option_text_ta=getattr(opt, "option_text_ta", None),
                 option_text_te=getattr(opt, "option_text_te", None),
@@ -372,7 +404,7 @@ def get_active_session(
             question_id=q.id,
             order=eq.question_order or (idx + 1),
             marks=eq.marks or q.max_marks,
-            question_text=q.question_text,
+            question_text=resolve_multilingual_field(q, "question_text", language),
             question_type=q.question_type,
             subject=q.subject,
             difficulty=q.difficulty,
@@ -410,9 +442,9 @@ def get_active_session(
         session_id=session.id,
         session_token=session.session_token,
         exam_id=exam.id,
-        exam_title=exam.title,
-        exam_subject=exam.subject,
-        exam_description=exam.description,
+        exam_title=resolve_multilingual_field(exam, "title", language),
+        exam_subject=resolve_multilingual_field(exam, "subject", language),
+        exam_description=resolve_multilingual_field(exam, "description", language),
         exam_title_en=getattr(exam, "title_en", None) or exam.title,
         exam_title_ta=getattr(exam, "title_ta", None),
         exam_title_te=getattr(exam, "title_te", None),
@@ -577,6 +609,7 @@ def log_proctor_event(
 def submit_exam_session(
     session_token: str,
     payload: SubmitExamRequest,
+    language: Optional[str] = Query("en", description="Requested student language code (en, ta, te, hi, ml, kn)"),
     current_user: User = Depends(require_approved_student),
     db: Session = Depends(get_db)
 ):
@@ -638,7 +671,17 @@ def submit_exam_session(
 
         # Serialized options for results breakdown
         options_data = [
-            {"id": opt.id, "option_text": opt.option_text, "is_correct": opt.is_correct}
+            {
+                "id": opt.id,
+                "option_text": resolve_multilingual_field(opt, "option_text", language),
+                "is_correct": opt.is_correct,
+                "option_text_en": getattr(opt, "option_text_en", None) or opt.option_text,
+                "option_text_ta": getattr(opt, "option_text_ta", None),
+                "option_text_te": getattr(opt, "option_text_te", None),
+                "option_text_hi": getattr(opt, "option_text_hi", None),
+                "option_text_ml": getattr(opt, "option_text_ml", None),
+                "option_text_kn": getattr(opt, "option_text_kn", None)
+            }
             for opt in q.options
         ]
 
@@ -750,7 +793,7 @@ def submit_exam_session(
             answer_id=ans.id if ans else None,
             question_id=q.id,
             order=eq.question_order or (idx + 1),
-            question_text=q.question_text,
+            question_text=resolve_multilingual_field(q, "question_text", language),
             question_type=q.question_type,
             subject=q.subject,
             difficulty=q.difficulty,
@@ -761,12 +804,30 @@ def submit_exam_session(
             image_url=ans.image_url if ans else None,
             correct_option_ids=correct_option_ids,
             options=options_data,
-            model_answer=q.model_answer,
+            model_answer=resolve_multilingual_field(q, "model_answer", language) or q.model_answer,
             evaluation_guidelines=getattr(q, "evaluation_guidelines", None) or q.expected_answer,
             is_correct=is_correct,
             is_flagged=ans.is_flagged if ans else False,
             ai_feedback=ai_feedback,
-            examiner_feedback=ans.examiner_feedback if ans else None
+            examiner_feedback=ans.examiner_feedback if ans else None,
+            question_text_en=getattr(q, "question_text_en", None) or q.question_text,
+            question_text_ta=getattr(q, "question_text_ta", None),
+            question_text_te=getattr(q, "question_text_te", None),
+            question_text_hi=getattr(q, "question_text_hi", None),
+            question_text_ml=getattr(q, "question_text_ml", None),
+            question_text_kn=getattr(q, "question_text_kn", None),
+            explanation_en=getattr(q, "explanation_en", None),
+            explanation_ta=getattr(q, "explanation_ta", None),
+            explanation_te=getattr(q, "explanation_te", None),
+            explanation_hi=getattr(q, "explanation_hi", None),
+            explanation_ml=getattr(q, "explanation_ml", None),
+            explanation_kn=getattr(q, "explanation_kn", None),
+            model_answer_en=getattr(q, "model_answer_en", None),
+            model_answer_ta=getattr(q, "model_answer_ta", None),
+            model_answer_te=getattr(q, "model_answer_te", None),
+            model_answer_hi=getattr(q, "model_answer_hi", None),
+            model_answer_ml=getattr(q, "model_answer_ml", None),
+            model_answer_kn=getattr(q, "model_answer_kn", None)
         )
         question_breakdown.append(qb)
 
@@ -849,8 +910,8 @@ def submit_exam_session(
         session_id=session.id,
         session_token=session.session_token,
         exam_id=exam.id,
-        exam_title=exam.title,
-        exam_subject=exam.subject,
+        exam_title=resolve_multilingual_field(exam, "title", language),
+        exam_subject=resolve_multilingual_field(exam, "subject", language),
         student_id=current_user.id,
         student_name=current_user.name,
         student_register_number=getattr(current_user, "register_number", None),
@@ -875,6 +936,30 @@ def submit_exam_session(
             events_breakdown=breakdown,
             recent_events=[]
         ),
+        exam_title_en=getattr(exam, "title_en", None) or exam.title,
+        exam_title_ta=getattr(exam, "title_ta", None),
+        exam_title_te=getattr(exam, "title_te", None),
+        exam_title_hi=getattr(exam, "title_hi", None),
+        exam_title_ml=getattr(exam, "title_ml", None),
+        exam_title_kn=getattr(exam, "title_kn", None),
+        exam_subject_en=getattr(exam, "subject_en", None) or exam.subject,
+        exam_subject_ta=getattr(exam, "subject_ta", None),
+        exam_subject_te=getattr(exam, "subject_te", None),
+        exam_subject_hi=getattr(exam, "subject_hi", None),
+        exam_subject_ml=getattr(exam, "subject_ml", None),
+        exam_subject_kn=getattr(exam, "subject_kn", None),
+        exam_description_en=getattr(exam, "description_en", None) or exam.description,
+        exam_description_ta=getattr(exam, "description_ta", None),
+        exam_description_te=getattr(exam, "description_te", None),
+        exam_description_hi=getattr(exam, "description_hi", None),
+        exam_description_ml=getattr(exam, "description_ml", None),
+        exam_description_kn=getattr(exam, "description_kn", None),
+        exam_instructions_en=getattr(exam, "instructions_en", None),
+        exam_instructions_ta=getattr(exam, "instructions_ta", None),
+        exam_instructions_te=getattr(exam, "instructions_te", None),
+        exam_instructions_hi=getattr(exam, "instructions_hi", None),
+        exam_instructions_ml=getattr(exam, "instructions_ml", None),
+        exam_instructions_kn=getattr(exam, "instructions_kn", None),
         is_approved=False,
         approved_at=None,
         approved_by_name=None,
@@ -887,11 +972,12 @@ def submit_exam_session(
 @router.get("/sessions/{session_token}/result", response_model=ExamResultDetailResponse)
 def get_session_result(
     session_token: str,
+    language: Optional[str] = Query("en", description="Requested student language code (en, ta, te, hi, ml, kn)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Retrieve completed examination results and detailed AI proctoring report.
+    Retrieve completed examination results and detailed AI proctoring report in chosen language.
     """
     session = db.query(ExamSession).options(
         joinedload(ExamSession.exam).joinedload(Exam.exam_questions).joinedload(ExamQuestion.question).joinedload(Question.options),
@@ -945,7 +1031,17 @@ def get_session_result(
 
         correct_option_ids = [opt.id for opt in q.options if opt.is_correct]
         options_data = [
-            {"id": opt.id, "option_text": opt.option_text, "is_correct": opt.is_correct}
+            {
+                "id": opt.id,
+                "option_text": resolve_multilingual_field(opt, "option_text", language),
+                "is_correct": opt.is_correct,
+                "option_text_en": getattr(opt, "option_text_en", None) or opt.option_text,
+                "option_text_ta": getattr(opt, "option_text_ta", None),
+                "option_text_te": getattr(opt, "option_text_te", None),
+                "option_text_hi": getattr(opt, "option_text_hi", None),
+                "option_text_ml": getattr(opt, "option_text_ml", None),
+                "option_text_kn": getattr(opt, "option_text_kn", None)
+            }
             for opt in q.options
         ]
 
@@ -969,7 +1065,7 @@ def get_session_result(
                 answer_id=ans.id if ans else None,
                 question_id=q.id,
                 order=eq.question_order or (idx + 1),
-                question_text=q.question_text,
+                question_text=resolve_multilingual_field(q, "question_text", language),
                 question_type=q.question_type,
                 subject=q.subject,
                 difficulty=q.difficulty,
@@ -980,12 +1076,30 @@ def get_session_result(
                 image_url=ans.image_url if ans else None,
                 correct_option_ids=correct_option_ids,
                 options=options_data,
-                model_answer=q.model_answer,
+                model_answer=resolve_multilingual_field(q, "model_answer", language) or q.model_answer,
                 evaluation_guidelines=getattr(q, "evaluation_guidelines", None) or q.expected_answer,
                 is_correct=is_correct,
                 is_flagged=ans.is_flagged if ans else False,
                 ai_feedback=(ans.ai_justification if (ans and ans.ai_justification) else feedback),
-                examiner_feedback=ans.examiner_feedback if ans else None
+                examiner_feedback=ans.examiner_feedback if ans else None,
+                question_text_en=getattr(q, "question_text_en", None) or q.question_text,
+                question_text_ta=getattr(q, "question_text_ta", None),
+                question_text_te=getattr(q, "question_text_te", None),
+                question_text_hi=getattr(q, "question_text_hi", None),
+                question_text_ml=getattr(q, "question_text_ml", None),
+                question_text_kn=getattr(q, "question_text_kn", None),
+                explanation_en=getattr(q, "explanation_en", None),
+                explanation_ta=getattr(q, "explanation_ta", None),
+                explanation_te=getattr(q, "explanation_te", None),
+                explanation_hi=getattr(q, "explanation_hi", None),
+                explanation_ml=getattr(q, "explanation_ml", None),
+                explanation_kn=getattr(q, "explanation_kn", None),
+                model_answer_en=getattr(q, "model_answer_en", None),
+                model_answer_ta=getattr(q, "model_answer_ta", None),
+                model_answer_te=getattr(q, "model_answer_te", None),
+                model_answer_hi=getattr(q, "model_answer_hi", None),
+                model_answer_ml=getattr(q, "model_answer_ml", None),
+                model_answer_kn=getattr(q, "model_answer_kn", None)
             )
         )
 
@@ -1026,8 +1140,8 @@ def get_session_result(
             session_id=session.id,
             session_token=session.session_token,
             exam_id=exam.id,
-            exam_title=exam.title,
-            exam_subject=exam.subject,
+            exam_title=resolve_multilingual_field(exam, "title", language),
+            exam_subject=resolve_multilingual_field(exam, "subject", language),
             student_id=student.id,
             student_name=student.name,
             student_register_number=getattr(student, "register_number", None),
@@ -1052,6 +1166,30 @@ def get_session_result(
                 events_breakdown=breakdown,
                 recent_events=[]
             ),
+            exam_title_en=getattr(exam, "title_en", None) or exam.title,
+            exam_title_ta=getattr(exam, "title_ta", None),
+            exam_title_te=getattr(exam, "title_te", None),
+            exam_title_hi=getattr(exam, "title_hi", None),
+            exam_title_ml=getattr(exam, "title_ml", None),
+            exam_title_kn=getattr(exam, "title_kn", None),
+            exam_subject_en=getattr(exam, "subject_en", None) or exam.subject,
+            exam_subject_ta=getattr(exam, "subject_ta", None),
+            exam_subject_te=getattr(exam, "subject_te", None),
+            exam_subject_hi=getattr(exam, "subject_hi", None),
+            exam_subject_ml=getattr(exam, "subject_ml", None),
+            exam_subject_kn=getattr(exam, "subject_kn", None),
+            exam_description_en=getattr(exam, "description_en", None) or exam.description,
+            exam_description_ta=getattr(exam, "description_ta", None),
+            exam_description_te=getattr(exam, "description_te", None),
+            exam_description_hi=getattr(exam, "description_hi", None),
+            exam_description_ml=getattr(exam, "description_ml", None),
+            exam_description_kn=getattr(exam, "description_kn", None),
+            exam_instructions_en=getattr(exam, "instructions_en", None),
+            exam_instructions_ta=getattr(exam, "instructions_ta", None),
+            exam_instructions_te=getattr(exam, "instructions_te", None),
+            exam_instructions_hi=getattr(exam, "instructions_hi", None),
+            exam_instructions_ml=getattr(exam, "instructions_ml", None),
+            exam_instructions_kn=getattr(exam, "instructions_kn", None),
             is_approved=False,
             approved_at=None,
             approved_by_name=None,
@@ -1065,8 +1203,8 @@ def get_session_result(
         session_id=session.id,
         session_token=session.session_token,
         exam_id=exam.id,
-        exam_title=exam.title,
-        exam_subject=exam.subject,
+        exam_title=resolve_multilingual_field(exam, "title", language),
+        exam_subject=resolve_multilingual_field(exam, "subject", language),
         student_id=student.id,
         student_name=student.name,
         student_register_number=getattr(student, "register_number", None),
@@ -1091,6 +1229,30 @@ def get_session_result(
             events_breakdown=breakdown,
             recent_events=recent_events
         ),
+        exam_title_en=getattr(exam, "title_en", None) or exam.title,
+        exam_title_ta=getattr(exam, "title_ta", None),
+        exam_title_te=getattr(exam, "title_te", None),
+        exam_title_hi=getattr(exam, "title_hi", None),
+        exam_title_ml=getattr(exam, "title_ml", None),
+        exam_title_kn=getattr(exam, "title_kn", None),
+        exam_subject_en=getattr(exam, "subject_en", None) or exam.subject,
+        exam_subject_ta=getattr(exam, "subject_ta", None),
+        exam_subject_te=getattr(exam, "subject_te", None),
+        exam_subject_hi=getattr(exam, "subject_hi", None),
+        exam_subject_ml=getattr(exam, "subject_ml", None),
+        exam_subject_kn=getattr(exam, "subject_kn", None),
+        exam_description_en=getattr(exam, "description_en", None) or exam.description,
+        exam_description_ta=getattr(exam, "description_ta", None),
+        exam_description_te=getattr(exam, "description_te", None),
+        exam_description_hi=getattr(exam, "description_hi", None),
+        exam_description_ml=getattr(exam, "description_ml", None),
+        exam_description_kn=getattr(exam, "description_kn", None),
+        exam_instructions_en=getattr(exam, "instructions_en", None),
+        exam_instructions_ta=getattr(exam, "instructions_ta", None),
+        exam_instructions_te=getattr(exam, "instructions_te", None),
+        exam_instructions_hi=getattr(exam, "instructions_hi", None),
+        exam_instructions_ml=getattr(exam, "instructions_ml", None),
+        exam_instructions_kn=getattr(exam, "instructions_kn", None),
         is_approved=is_approved,
         approved_at=result.approved_at if result else None,
         approved_by_name=result.approver.name if (result and result.approver) else None,

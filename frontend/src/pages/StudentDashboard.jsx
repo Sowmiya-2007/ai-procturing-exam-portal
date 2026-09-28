@@ -5,6 +5,7 @@ import {
   Calendar, 
   Clock, 
   ShieldCheck, 
+  ShieldAlert,
   Video, 
   Mic, 
   FileText, 
@@ -16,7 +17,8 @@ import {
   HelpCircle,
   Eye,
   RefreshCw,
-  Maximize
+  Maximize,
+  Camera
 } from "lucide-react";
 import { api } from "../services/api";
 import { StatusBadge } from "../components/StatusBadge";
@@ -49,7 +51,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
       if (silent) setRefreshing(true);
       else setLoading(true);
       
-      const data = await api.getStudentDashboard();
+      const data = await api.getStudentDashboard(language);
       setDashboardData(data);
       if (silent) {
         showToast("Examination schedules updated.", "info");
@@ -64,7 +66,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [language]);
 
   const handleStartExam = (exam) => {
     setActiveExamModal(exam);
@@ -75,7 +77,7 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
 
     try {
       setLaunchingExam(true);
-      const res = await api.startExamSession(activeExamModal.id);
+      const res = await api.startExamSession(activeExamModal.id, language);
       showToast(t("toast.exam_started", null, "Candidate verified. Commencing proctored assessment..."), "success");
       setActiveExamModal(null);
 
@@ -151,9 +153,9 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
                 {user?.register_number || "REG2024CS001"}
               </span>
               <span>&bull;</span>
-              <span>{user?.department || "Computer Science"}</span>
+              <span>{user?.department ? translateContent(user.department, language) : translateContent("Computer Science", language)}</span>
               <span>&bull;</span>
-              <span>{user?.year || "3rd Year"}</span>
+              <span>{user?.year ? translateContent(user.year, language) : translateContent("3rd Year", language)}</span>
             </div>
           </div>
         </div>
@@ -515,40 +517,101 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
 
         {/* Right Side: Examination Guidelines & Announcements */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
-          {/* Instructions Card */}
-          <div className="glass-card" style={{ padding: "2rem 2.25rem" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 800, margin: "0 0 1.25rem", display: "flex", alignItems: "center", gap: "0.7rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-main)" }}>
-              <FileText size={20} color="#818cf8" /> {t("student_dashboard.candidate_guidelines_title", null, "Candidate Guidelines")}
-            </h3>
-            <ul style={{ paddingLeft: "1.25rem", fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.65, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <li>{t("student_dashboard.guideline_1", null, "Webcam & microphone must remain active throughout the examination session.")}</li>
-              <li>{t("student_dashboard.guideline_2", null, "Handwritten diagram responses can be captured with webcam snapshot.")}</li>
-              <li>{t("student_dashboard.guideline_3", null, "AI proctoring alerts trigger automatically upon tab-switching or multi-person presence.")}</li>
-              <li>{t("student_dashboard.guideline_4", null, "Official results are published after examiner audit and sign-off.")}</li>
-            </ul>
+          {/* Instructions / Candidate Guidelines Card */}
+          <div className="glass-card" style={{ padding: "1.75rem 2rem" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.35rem", paddingBottom: "0.85rem", borderBottom: "1px solid var(--border-color)" }}>
+              <h3 style={{ fontSize: "1.05rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "0.6rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-main)" }}>
+                <FileText size={19} color="#818cf8" /> {t("student_dashboard.candidate_guidelines_title", null, "Candidate Guidelines")}
+              </h3>
+              <span className="badge badge-role-student" style={{ fontSize: "0.68rem" }}>
+                {t("student_dashboard.mandatory_badge", null, "Mandatory")}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.95rem" }}>
+              {/* Guideline 1: Camera & Mic */}
+              <div className="guideline-card">
+                <div className="guideline-icon-wrapper" style={{ background: "rgba(99, 102, 241, 0.16)", color: "#818cf8", border: "1px solid rgba(99, 102, 241, 0.3)" }}>
+                  <Video size={18} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: "0.875rem", color: "var(--text-main)", fontWeight: 600, display: "block", lineHeight: 1.45 }}>
+                    {t("student_dashboard.guideline_1", null, "Webcam & microphone must remain active throughout the examination session.")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Guideline 2: Diagram Snapshots */}
+              <div className="guideline-card">
+                <div className="guideline-icon-wrapper" style={{ background: "rgba(16, 185, 129, 0.16)", color: "#34d399", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+                  <Camera size={18} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: "0.875rem", color: "var(--text-main)", fontWeight: 600, display: "block", lineHeight: 1.45 }}>
+                    {t("student_dashboard.guideline_2", null, "Handwritten diagram responses can be captured with webcam snapshot.")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Guideline 3: AI Proctoring */}
+              <div className="guideline-card">
+                <div className="guideline-icon-wrapper" style={{ background: "rgba(245, 158, 11, 0.16)", color: "#fbbf24", border: "1px solid rgba(245, 158, 11, 0.3)" }}>
+                  <ShieldAlert size={18} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: "0.875rem", color: "var(--text-main)", fontWeight: 600, display: "block", lineHeight: 1.45 }}>
+                    {t("student_dashboard.guideline_3", null, "AI proctoring alerts trigger automatically upon tab-switching or multi-person presence.")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Guideline 4: Institutional Audit */}
+              <div className="guideline-card">
+                <div className="guideline-icon-wrapper" style={{ background: "rgba(168, 85, 247, 0.16)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.3)" }}>
+                  <CheckCircle2 size={18} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: "0.875rem", color: "var(--text-main)", fontWeight: 600, display: "block", lineHeight: 1.45 }}>
+                    {t("student_dashboard.guideline_4", null, "Official results are published after examiner audit and sign-off.")}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Institutional Bulletins */}
-          <div className="glass-card" style={{ padding: "2rem 2.25rem" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 800, margin: "0 0 1.25rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-main)" }}>
-              {t("student_dashboard.exam_cell_notices_title", null, "Exam Cell Notices")}
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              {dashboardData?.announcements?.map((ann) => (
-                <div key={ann.id} style={{ background: "rgba(15, 23, 42, 0.55)", padding: "1.25rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
-                    <span style={{ fontSize: "0.925rem", fontWeight: 800, color: "var(--text-main)" }}>
-                      {translateContent(ann.title, language)}
-                    </span>
-                    <span className="badge badge-pending" style={{ fontSize: "0.75rem" }}>
-                      {translateContent(ann.tag, language)}
-                    </span>
+          {/* Institutional Bulletins / Exam Cell Notices */}
+          <div className="glass-card" style={{ padding: "1.75rem 2rem" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.35rem", paddingBottom: "0.85rem", borderBottom: "1px solid var(--border-color)" }}>
+              <h3 style={{ fontSize: "1.05rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "0.6rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-main)" }}>
+                <Sparkles size={19} color="#06b6d4" /> {t("student_dashboard.exam_cell_notices_title", null, "Exam Cell Notices")}
+              </h3>
+              <span className="badge badge-approved" style={{ fontSize: "0.68rem" }}>
+                {t("student_dashboard.live_bulletin", null, "Official")}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.95rem" }}>
+              {dashboardData?.announcements?.map((ann) => {
+                const annTitle = ann[`title_${language}`] || translateContent(ann.title, language);
+                const annTag = ann[`tag_${language}`] || translateContent(ann.tag, language);
+                const annContent = ann[`content_${language}`] || translateContent(ann.content, language);
+
+                return (
+                  <div key={ann.id} className="notice-item-card">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem", gap: "0.5rem" }}>
+                      <span style={{ fontSize: "0.925rem", fontWeight: 700, color: "var(--text-main)" }}>
+                        {annTitle}
+                      </span>
+                      <span className="badge badge-pending" style={{ fontSize: "0.7rem", padding: "0.2rem 0.55rem" }}>
+                        {annTag}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: "0.85rem", color: "var(--text-subtle)", lineHeight: 1.5, margin: 0 }}>
+                      {annContent}
+                    </p>
                   </div>
-                  <p style={{ fontSize: "0.85rem", color: "var(--text-subtle)", lineHeight: 1.5, margin: 0 }}>
-                    {translateContent(ann.content, language)}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -557,65 +620,72 @@ export const StudentDashboard = ({ onEnterExamHall, onViewResult, initialTab = "
       {/* AI Proctoring System Hardware Verification Modal */}
       {activeExamModal && (
         <div className="modal-overlay" onClick={() => !launchingExam && setActiveExamModal(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "560px", padding: "2rem" }}>
-            <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "560px", padding: "2.25rem" }}>
+            <div style={{ textAlign: "center", marginBottom: "1.75rem" }}>
               <div
                 style={{
-                  width: "56px",
-                  height: "56px",
+                  width: "60px",
+                  height: "60px",
                   borderRadius: "50%",
-                  background: "rgba(99, 102, 241, 0.2)",
-                  border: "1px solid #6366f1",
+                  background: "rgba(99, 102, 241, 0.18)",
+                  border: "1.5px solid #6366f1",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  margin: "0 auto 1rem",
-                  color: "#a5b4fc"
+                  margin: "0 auto 1.15rem",
+                  color: "#a5b4fc",
+                  boxShadow: "0 0 20px rgba(99, 102, 241, 0.35)"
                 }}
               >
-                <Video size={28} />
+                <Video size={30} />
               </div>
-              <h3 style={{ fontSize: "1.3rem", fontWeight: 800 }}>
+              <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "var(--text-main)" }}>
                 {t("student_dashboard.system_check_title", null, "AI Proctoring System Check")}
               </h3>
-              <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                {activeExamModal.title}
+              <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", marginTop: "0.35rem" }}>
+                {activeExamModal[`title_${language}`] || translateContent(activeExamModal.title, language)}
               </p>
             </div>
 
-            <div className="glass-card" style={{ padding: "1.25rem", marginBottom: "1.5rem", background: "rgba(15, 23, 42, 0.8)" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+            <div className="glass-card" style={{ padding: "1.35rem 1.5rem", marginBottom: "1.75rem", background: "rgba(15, 23, 42, 0.85)", border: "1px solid var(--border-color)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <Video size={18} color="#34d399" />
-                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>
+                    <span style={{ fontSize: "0.9rem", color: "var(--text-main)", fontWeight: 500 }}>
                       {t("student_dashboard.webcam_feed", null, "Webcam Vision Feed")}
                     </span>
                   </div>
-                  <span className="badge badge-approved">{t("student_dashboard.connected_verified", null, "Connected & Verified")}</span>
+                  <span className="badge badge-approved" style={{ fontSize: "0.725rem" }}>
+                    {t("student_dashboard.connected_verified", null, "Connected & Verified")}
+                  </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <Mic size={18} color="#34d399" />
-                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>
+                    <span style={{ fontSize: "0.9rem", color: "var(--text-main)", fontWeight: 500 }}>
                       {t("student_dashboard.mic_calibrator", null, "Microphone Audio Calibrator")}
                     </span>
                   </div>
-                  <span className="badge badge-approved">{t("student_dashboard.calibrated", null, "Calibrated")}</span>
+                  <span className="badge badge-approved" style={{ fontSize: "0.725rem" }}>
+                    {t("student_dashboard.calibrated", null, "Calibrated")}
+                  </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <ShieldCheck size={18} color="#34d399" />
-                    <span style={{ fontSize: "0.875rem", color: "var(--text-main)" }}>
+                    <span style={{ fontSize: "0.9rem", color: "var(--text-main)", fontWeight: 500 }}>
                       {t("student_dashboard.lockdown_ready", null, "Anti-Cheating Window Lockdown")}
                     </span>
                   </div>
-                  <span className="badge badge-approved">{t("student_dashboard.ready", null, "Ready")}</span>
+                  <span className="badge badge-approved" style={{ fontSize: "0.725rem" }}>
+                    {t("student_dashboard.ready", null, "Ready")}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.85rem" }}>
               <button
                 disabled={launchingExam}
                 className="btn btn-secondary"

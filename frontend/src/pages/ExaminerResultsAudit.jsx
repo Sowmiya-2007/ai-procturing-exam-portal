@@ -416,10 +416,10 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                     </td>
                     <td>
                       <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.9rem" }}>
-                        {sub.exam_title}
+                        {sub[`exam_title_${language}`] || translateContent(sub.exam_title, language)}
                       </div>
                       <div style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
-                        {sub.exam_subject || "General"}
+                        {sub[`exam_subject_${language}`] || translateContent(sub.exam_subject, language) || "General"}
                       </div>
                     </td>
                     <td style={{ fontWeight: 700, fontFamily: "var(--font-mono)", fontSize: "0.95rem" }}>
@@ -519,7 +519,7 @@ export const ExaminerResultsAudit = ({ initialExamId = null, initialSessionToken
                       <span>&bull;</span>
                       <span>Department: <strong>{sessionDetails.student_department || "Computer Science"}</strong></span>
                       <span>&bull;</span>
-                      <span>Exam: <strong>{sessionDetails.exam_title}</strong></span>
+                      <span>Exam: <strong>{sessionDetails[`exam_title_${language}`] || translateContent(sessionDetails.exam_title, language)}</strong></span>
                     </div>
                   </div>
 

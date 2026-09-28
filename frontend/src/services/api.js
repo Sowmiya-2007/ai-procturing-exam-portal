@@ -3,8 +3,10 @@ const API_BASE = rawBase.endsWith("/api") ? rawBase : `${rawBase.replace(/\/$/, 
 
 const getHeaders = () => {
   const token = localStorage.getItem("exam_ai_token");
+  const lang = localStorage.getItem("exam_ai_language") || "en";
   return {
     "Content-Type": "application/json",
+    "Accept-Language": lang,
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   };
 };
@@ -199,7 +201,11 @@ export const api = {
 
   extractQuestionsFromDocument: async (formData) => {
     const token = localStorage.getItem("exam_ai_token");
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const lang = localStorage.getItem("exam_ai_language") || "en";
+    const headers = {
+      "Accept-Language": lang,
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
     const res = await fetch(`${API_BASE}/questions/extract-document`, {
       method: "POST",
       headers: headers,
@@ -317,11 +323,13 @@ export const api = {
     return data;
   },
 
-  getExams: async ({ subject, status, search } = {}) => {
+  getExams: async ({ subject, status, search, language } = {}) => {
+    const lang = language || localStorage.getItem("exam_ai_language") || "en";
     const params = new URLSearchParams();
     if (subject && subject !== "ALL") params.append("subject", subject);
     if (status && status !== "ALL") params.append("status", status);
     if (search) params.append("search", search);
+    if (lang) params.append("language", lang);
 
     const res = await fetch(`${API_BASE}/exams?${params.toString()}`, {
       headers: getHeaders()
@@ -331,8 +339,9 @@ export const api = {
     return data;
   },
 
-  getExam: async (id) => {
-    const res = await fetch(`${API_BASE}/exams/${id}`, {
+  getExam: async (id, language) => {
+    const lang = language || localStorage.getItem("exam_ai_language") || "en";
+    const res = await fetch(`${API_BASE}/exams/${id}?language=${lang}`, {
       headers: getHeaders()
     });
     const data = await res.json();
@@ -423,8 +432,9 @@ export const api = {
   },
 
   // --- Student & Exam Sessions ---
-  getStudentDashboard: async () => {
-    const res = await fetch(`${API_BASE}/student/dashboard`, {
+  getStudentDashboard: async (language) => {
+    const lang = language || localStorage.getItem("exam_ai_language") || "en";
+    const res = await fetch(`${API_BASE}/student/dashboard?language=${lang}`, {
       headers: getHeaders()
     });
     const data = await res.json();
@@ -432,8 +442,9 @@ export const api = {
     return data;
   },
 
-  getStudentResults: async () => {
-    const res = await fetch(`${API_BASE}/student/results`, {
+  getStudentResults: async (language) => {
+    const lang = language || localStorage.getItem("exam_ai_language") || "en";
+    const res = await fetch(`${API_BASE}/student/results?language=${lang}`, {
       headers: getHeaders()
     });
     const data = await res.json();
@@ -441,8 +452,9 @@ export const api = {
     return data;
   },
 
-  startExamSession: async (examId) => {
-    const res = await fetch(`${API_BASE}/exams/${examId}/start`, {
+  startExamSession: async (examId, language) => {
+    const lang = language || localStorage.getItem("exam_ai_language") || "en";
+    const res = await fetch(`${API_BASE}/exams/${examId}/start?language=${lang}`, {
       method: "POST",
       headers: getHeaders()
     });
@@ -451,8 +463,9 @@ export const api = {
     return data;
   },
 
-  getActiveSession: async (sessionToken) => {
-    const res = await fetch(`${API_BASE}/exams/sessions/${sessionToken}/active`, {
+  getActiveSession: async (sessionToken, language) => {
+    const lang = language || localStorage.getItem("exam_ai_language") || "en";
+    const res = await fetch(`${API_BASE}/exams/sessions/${sessionToken}/active?language=${lang}`, {
       headers: getHeaders()
     });
     const data = await res.json();
@@ -482,8 +495,9 @@ export const api = {
     return data;
   },
 
-  submitExamSession: async (sessionToken, payload = { final_confirmation: true }) => {
-    const res = await fetch(`${API_BASE}/exams/sessions/${sessionToken}/submit`, {
+  submitExamSession: async (sessionToken, payload = { final_confirmation: true }, language) => {
+    const lang = language || localStorage.getItem("exam_ai_language") || "en";
+    const res = await fetch(`${API_BASE}/exams/sessions/${sessionToken}/submit?language=${lang}`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload)
@@ -493,8 +507,9 @@ export const api = {
     return data;
   },
 
-  getSessionResult: async (sessionToken) => {
-    const res = await fetch(`${API_BASE}/exams/sessions/${sessionToken}/result`, {
+  getSessionResult: async (sessionToken, language) => {
+    const lang = language || localStorage.getItem("exam_ai_language") || "en";
+    const res = await fetch(`${API_BASE}/exams/sessions/${sessionToken}/result?language=${lang}`, {
       headers: getHeaders()
     });
     const data = await res.json();

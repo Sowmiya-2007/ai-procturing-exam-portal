@@ -5,8 +5,6 @@ import {
   Clock, 
   CheckCircle2, 
   XCircle, 
-  HelpCircle, 
-  PlusCircle, 
   ArrowRight, 
   Sparkles, 
   BookOpen, 
@@ -840,20 +838,6 @@ export const AdminDashboard = ({
                   }}
                 />
               </div>
-
-              <button
-                onClick={() => setCurrentView("create_exam")}
-                className="btn btn-primary btn-sm"
-                style={{
-                  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  padding: "0.45rem 0.95rem"
-                }}
-              >
-                <PlusCircle size={15} /> {t("examiner.create_exam_btn", "+ Create Exam")}
-              </button>
             </div>
           </div>
 

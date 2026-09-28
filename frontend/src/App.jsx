@@ -23,6 +23,8 @@ import { ExamHall } from "./pages/ExamHall";
 import { ExamResultView } from "./pages/ExamResultView";
 import { ExaminerResultsAudit } from "./pages/ExaminerResultsAudit";
 import { ExaminerEnrolledStudents } from "./pages/ExaminerEnrolledStudents";
+import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
+import { OfflineMonitor } from "./components/OfflineMonitor";
 import { api } from "./services/api";
 
 function MainApp() {
@@ -57,7 +59,7 @@ function MainApp() {
           setCurrentView("student_dashboard");
         } else if (isExaminer && !["examiner_dashboard", "created_exams", "examiner_results_audit", "enrolled_students", "question_bank", "add_question", "edit_question", "create_exam"].includes(currentView)) {
           setCurrentView("examiner_dashboard");
-        } else if (isAdmin && !["admin_dashboard", "admin_available_exams", "examiner_results_audit", "enrolled_students", "admin_examiners", "pending_approvals", "approved_students", "question_bank", "add_question", "create_exam"].includes(currentView)) {
+        } else if (isAdmin && !["admin_dashboard", "admin_available_exams", "examiner_results_audit", "enrolled_students", "admin_examiners", "pending_approvals", "approved_students"].includes(currentView)) {
           setCurrentView("admin_dashboard");
         }
       } else {
@@ -263,7 +265,13 @@ function MainApp() {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      {showNavbar && <Navbar currentView={currentView} setCurrentView={setCurrentView} />}
+      <OfflineMonitor />
+      {showNavbar && (
+        <>
+          <Navbar currentView={currentView} setCurrentView={setCurrentView} />
+          <PwaInstallPrompt />
+        </>
+      )}
       <div className="app-container">
         {showSidebar && (
           <Sidebar

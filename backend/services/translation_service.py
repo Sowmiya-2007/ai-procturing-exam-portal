@@ -1,24 +1,40 @@
+import os
 import sys
 import re
-import urllib.parse
-import urllib.request
 import json
 import logging
+import urllib.parse
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Union
+
+from app.core.config import settings
 
 logger = logging.getLogger("TranslationService")
 
-SUPPORTED_LANGUAGES = ["en", "ta", "te", "hi", "ml", "kn"]
+# Canonical 6 Supported Languages
+SUPPORTED_LANGUAGES: List[str] = ["en", "ta", "hi", "te", "ml", "kn"]
 
-MYMEMORY_LANG_MAP = {
+LANGUAGE_NAMES: Dict[str, str] = {
+    "en": "English",
+    "ta": "Tamil",
+    "hi": "Hindi",
+    "te": "Telugu",
+    "ml": "Malayalam",
+    "kn": "Kannada"
+}
+
+MYMEMORY_LANG_MAP: Dict[str, str] = {
     "en": "en-GB",
     "ta": "ta-IN",
-    "te": "te-IN",
     "hi": "hi-IN",
+    "te": "te-IN",
     "ml": "ml-IN",
     "kn": "kn-IN"
 }
+
+# In-memory translation cache (source_text + "_" + target_lang -> translated_text)
+_TRANSLATION_CACHE: Dict[str, str] = {}
 
 # Domain-specific curated terminology dictionary for instant & 100% accurate CS / Exam translations
 CORE_CS_DICTIONARY: Dict[str, Dict[str, str]] = {
@@ -64,34 +80,6 @@ CORE_CS_DICTIONARY: Dict[str, Dict[str, str]] = {
         "ml": "ആർട്ടിഫിഷ്യൽ ഇന്റലിജൻസ്",
         "kn": "ಕೃತಕ ಬುದ್ಧಿಮತ್ತೆ (AI)"
     },
-    "Advanced Java and Data Structures Assessment 2026": {
-        "ta": "மேம்பட்ட ஜாவா மற்றும் தரவு கட்டமைப்புகள் மதிப்பீடு 2026",
-        "te": "అధునాతన జావా మరియు డేటా స్ట్రక్చర్స్ అసెస్‌మెంట్ 2026",
-        "hi": "उन्नत जावा और डेटा संरचनाएं मूल्यांकन 2026",
-        "ml": "അഡ്വാൻസ്ഡ് ജാവ ആൻഡ് ഡാറ്റാ സ്ട്രക്ച്ചേഴ്സ് അസസ്സ്മെന്റ് 2026",
-        "kn": "ಸುಧಾರಿತ ಜಾವಾ ಮತ್ತು ಡೇಟಾ ರಚನೆಗಳ ಮೌಲ್ಯಮಾಪನ 2026"
-    },
-    "Algorithms Mastery Assessment 2026": {
-        "ta": "அல்காரிதம்கள் தேர்ச்சி மதிப்பீடு 2026",
-        "te": "అల్గారిథమ్స్ మాస్టరీ అసెస్‌మెంట్ 2026",
-        "hi": "एल्गोरिदम महारत मूल्यांकन 2026",
-        "ml": "അൽഗോരിതങ്ങൾ മാസ്റ്ററി അസസ്സ്മെന്റ് 2026",
-        "kn": "ಅಲ್ಗಾರಿದಮ್‌ಗಳ ಪಾಂಡಿತ್ಯ ಮೌಲ್ಯಮಾಪನ 2026"
-    },
-    "Assessment covering Java programming and fundamental data structures.": {
-        "ta": "ஜாவா நிரலாக்கம் மற்றும் அடிப்படை தரவு கட்டமைப்புகளை உள்ளடக்கிய மதிப்பீடு.",
-        "te": "జావా ప్రోగ్రామింగ్ మరియు ప్రాథమిక డేటా నిర్మాణాలను కవర్ చేసే అసెస్‌మెంట్.",
-        "hi": "जावा प्रोग्रामिंग और मौलिक डेटा संरचनाओं को कवर करने वाला मूल्यांकन।",
-        "ml": "ജാവ പ്രോഗ്രാമിംഗും അടിസ്ഥാന ഡാറ്റാ ഘടനകളും ഉൾക്കൊള്ളുന്ന വിലയിരുത്തൽ.",
-        "kn": "ಜಾವಾ ಪ್ರೋಗ್ರಾಮಿಂಗ್ ಮತ್ತು ಮೂಲಭೂತ ಡೇಟಾ ರಚನೆಗಳನ್ನು ಒಳಗೊಂಡಿರುವ ಮೌಲ್ಯಮಾಪನ."
-    },
-    "What is the time complexity of binary search on a sorted array?": {
-        "ta": "வரிசைப்படுத்தப்பட்ட வரிசையில் பைனரி தேடலின் நேர சிக்கலானது என்ன?",
-        "te": "క్రమబద్ధీకరించిన శ్రేణిపై బైనరీ శోధన యొక్క సమయ సంక్లిష్టత ఏమిటి?",
-        "hi": "क्रमबद्ध सरणी पर द्विआधारी खोज की समय जटिलता क्या है?",
-        "ml": "ഒരു അടുക്കിയ അറേയിലെ ബൈനറി തിരയലിന്റെ സമയ സങ്കീർണ്ണത എന്താണ്?",
-        "kn": "ವಿಂಗಡಿಸಲಾದ ಶ್ರೇಣಿಯಲ್ಲಿ ಬೈನರಿ ಹುಡುಕಾಟದ ಸಮಯದ ಸಂಕೀರ್ಣತೆ ಏನು?"
-    },
     "Constant time": {
         "ta": "நிலையான நேரம் (Constant time)",
         "te": "స్థిరమైన సమయం (Constant time)",
@@ -120,39 +108,124 @@ CORE_CS_DICTIONARY: Dict[str, Dict[str, str]] = {
         "ml": "ക്വാഡ്രാറ്റിക് സമയം (Quadratic time)",
         "kn": "ಚತುರ್ಭುಜ ಸಮಯ (Quadratic time)"
     },
-    "Binary search repeatedly divides the search space into two halves.": {
-        "ta": "பைனரி தேடல் தேடல் இடத்தை மீண்டும் மீண்டும் இரண்டு பகுதிகளாகப் பிரிக்கிறது.",
-        "te": "బైనరీ శోధన శోధన స్థలాన్ని పదేపదే రెండు భాగాలుగా విభజిస్తుంది.",
-        "hi": "बाइनरी सर्च बार-बार खोज स्थान को दो हिस्सों में विभाजित करती है।",
-        "ml": "ബൈനറി തിരയൽ തിരയൽ സ്ഥലത്തെ ആവർത്തിച്ച് രണ്ട് ഭാഗങ്ങളായി വിഭജിക്കുന്നു.",
-        "kn": "ಬೈನರಿ ಹುಡುಕಾಟವು ಹುಡುಕಾಟ ಜಾಗವನ್ನು ಪುನರಾವರ್ತಿತವಾಗಿ ಎರಡು ಭಾಗಗಳಾಗಿ ವಿಭಜಿಸುತ್ತದೆ."
+    "Stack": {
+        "ta": "ஸ்டேக் (Stack - LIFO)",
+        "te": "స్టాక్ (Stack)",
+        "hi": "स्टैक (Stack)",
+        "ml": "സ്റ്റാക്ക് (Stack)",
+        "kn": "ಸ್ಟ್ಯಾಕ್ (Stack)"
     },
-    "Binary search has O(log N) time complexity.": {
-        "ta": "பைனரி தேடல் O(log N) நேர சிக்கலைக் கொண்டுள்ளது.",
-        "te": "బైనరీ శోధన O(log N) సమయ సంక్లిష్టతను కలిగి ఉంది.",
-        "hi": "बाइनरी सर्च की समय जटिलता O(log N) होती है।",
-        "ml": "ബൈനറി തിരയലിന് O(log N) സമയ സങ്കീർണ്ണതയുണ്ട്.",
-        "kn": "ಬೈನರಿ ಹುಡುಕಾಟವು O(log N) ಸಮಯದ ಸಂಕೀರ್ಣತೆಯನ್ನು ಹೊಂದಿದೆ."
+    "Queue": {
+        "ta": "வரிசை (Queue - FIFO)",
+        "te": "క్యూ (Queue)",
+        "hi": "कतार (Queue)",
+        "ml": "ക്യൂ (Queue)",
+        "kn": "ಕ್ಯೂ (Queue)"
+    },
+    "Tree": {
+        "ta": "மரம் (Tree)",
+        "te": "ట్రీ (Tree)",
+        "hi": "ट्री (Tree)",
+        "ml": "ട്രീ (Tree)",
+        "kn": "ಟ್ರೀ (Tree)"
+    },
+    "Graph": {
+        "ta": "வரைபடம் (Graph)",
+        "te": "గ్రాఫ్ (Graph)",
+        "hi": "ग्राफ (Graph)",
+        "ml": "ഗ്രാഫ് (Graph)",
+        "kn": "ಗ್ರಾಫ್ (Graph)"
+    },
+    "Algorithms Mastery Assessment 2026": {
+        "ta": "அல்காரிதம்கள் தேர்ச்சி மதிப்பீடு 2026",
+        "te": "అల్గారిథమ్స్ మాస్టరీ అసెస్‌మెంట్ 2026",
+        "hi": "एल्गोरिदम महारत मूल्यांकन 2026",
+        "ml": "അൽഗോരിതങ്ങൾ മാസ്റ്ററി അസസ്സ്മെന്റ് 2026",
+        "kn": "ಅಲ್ಗಾರಿದಮ್‌ಗಳ ಪಾಂಡಿತ್ಯ ಮೌಲ್ಯಮಾಪನ 2026"
+    },
+    "Computer Science Comprehensive Midterm 2026": {
+        "ta": "கணினி அறிவியல் விரிவான இடைப்பருவத் தேர்வு 2026",
+        "te": "కంప్యూటర్ సైన్స్ సమగ్ర మిడ్-టర్మ్ పరీక్ష 2026",
+        "hi": "कंप्यूटर विज्ञान व्यापक मध्यावधि परीक्षा 2026",
+        "ml": "കമ്പ്യൂട്ടർ സയൻസ് സമഗ്ര മിഡ്-ടേം പരീക്ഷ 2026",
+        "kn": "ಕಂಪ್ಯೂಟರ್ ಸೈನ್ಸ್ ಸಮಗ್ರ ಮಿಡ್-ಟರ್ಮ್ ಪರೀಕ್ಷೆ 2026"
+    },
+    "What is the time complexity of binary search on a sorted array?": {
+        "ta": "வரிசைப்படுத்தப்பட்ட அணியில் இருமத் தேடலின் (binary search) நேர சிக்கல் என்ன?",
+        "te": "క్రమబద్ధీకరించబడిన శ్రేణిపై బైనరీ శోధన యొక్క సమయ సంక్లిష్టత ఏమిటి?",
+        "hi": "सॉर्ट किए गए ऐरे पर बाइनरी सर्च की समय जटिलता (time complexity) क्या है?",
+        "ml": "സോർട്ട് ചെയ്ത അറേയിലെ ബൈനറി സെർച്ചിന്റെ ടൈം കോംപ്ലക്സിറ്റി എന്താണ്?",
+        "kn": "ವಿಂಗಡಿಸಲಾದ ಅರೇಯಲ್ಲಿ ಬೈನರಿ ಹುಡುಕಾಟದ ಸಮಯ ಸಂಕೀರ್ಣತೆ (time complexity) ಏನು?"
+    },
+    "Which data structure uses FIFO?": {
+        "ta": "எந்த தரவு அமைப்பு FIFO (முதலில் வருபவர் முதலில் வெளியேறுவார்) முறையைப் பயன்படுத்துகிறது?",
+        "te": "ఏ డేటా స్ట్రక్చర్ FIFO ని ఉపయోగిస్తుంది?",
+        "hi": "कौन सी डेटा संरचना FIFO का उपयोग करती है?",
+        "ml": "ഏത് ഡാറ്റാ ഘടനയാണ് FIFO ഉപയോഗിക്കുന്നത്?",
+        "kn": "ಯಾವ ಡೇಟಾ ರಚನೆಯು FIFO ಅನ್ನು ಬಳಸುತ್ತದೆ?"
+    },
+    "Which data structure operates on a First-In-First-Out (FIFO) basis?": {
+        "ta": "எந்த தரவு அமைப்பு முதலில் வருபவர் முதலில் வெளியேறுவார் (FIFO) அடிப்படையில் இயங்குகிறது?",
+        "te": "మొదట వచ్చినది మొదట వెళ్తుంది (FIFO) ఆధారంగా ఏ డేటా స్ట్రక్చర్ పనిచేస్తుంది?",
+        "hi": "कौन सा डेटा स्ट्रक्चर फर्स्ट-इन-फर्स्ट-आउट (FIFO) के आधार पर संचालित होता है?",
+        "ml": "ഫസ്റ്റ്-ഇൻ-ഫസ്റ്റ്-ഔട്ട് (FIFO) അടിസ്ഥാനത്തിൽ പ്രവർത്തിക്കുന്ന ഡാറ്റാ ഘടന ഏതാണ്?",
+        "kn": "ಫಸ್ಟ್-ಇನ್-ಫಸ್ಟ್-ಔಟ್ (FIFO) ಆಧಾರದ ಮೇಲೆ ಯಾವ ಡೇಟಾ ರಚನೆಯು ಕಾರ್ಯನಿರ್ವಹಿಸುತ್ತದೆ?"
+    },
+    "Which OSI layer is responsible for end-to-end reliable communication, error recovery, and flow control?": {
+        "ta": "முழுமையான நம்பகமான தகவல் தொடர்பு, பிழை மீட்பு மற்றும் தரவு ஓட்டக் கட்டுப்பாட்டிற்கு எந்த OSI அடுக்கு பொறுப்பாகும்?",
+        "te": "ఎండ్-టు-ఎండ్ విశ్వసనీయ కమ్యూనికేషన్, లోపం రికవరీ మరియు ఫ్లో నియంత్రణకు ఏ OSI లేయర్ బాధ్యత వహిస్తుంది?",
+        "hi": "एंड-टू-एंड विश्वसनीय संचार, त्रुटि सुधार और प्रवाह नियंत्रण के लिए कौन सी OSI परत जिम्मेदार है?",
+        "ml": "എൻഡ്-ടു-എൻഡ് വിശ്വസനീയമായ ആശയവിനിമയം, പിശക് തിരുത്തൽ, ഫ്ലോ നിയന്ത്രണം എന്നിവയ്ക്ക് ഏത് OSI ലെയറാണ് ഉത്തരവാദി?",
+        "kn": "ಎಂಡ್-ಟು-ಎಂಡ್ ವಿಶ್ವಾಸಾರ್ಹ ಸಂವಹನ, ದೋಷ ಮರುಪಡೆಯುವಿಕೆ ಮತ್ತು ಹರಿವಿನ ನಿಯಂತ್ರಣಕ್ಕೆ ಯಾವ OSI ಲೇಯರ್ ಕಾರಣವಾಗಿದೆ?"
+    },
+    "O(1) - Constant time": {
+        "ta": "O(1) - நிலையான நேரம் (Constant time)",
+        "te": "O(1) - స్థిరమైన సమయం (Constant time)",
+        "hi": "O(1) - स्थिर समय (Constant time)",
+        "ml": "O(1) - സ്ഥിരമായ സമയം (Constant time)",
+        "kn": "O(1) - ಸ್ಥಿರ ಸಮಯ (Constant time)"
+    },
+    "O(log N) - Logarithmic time": {
+        "ta": "O(log N) - மடக்கை நேரம் (Logarithmic time)",
+        "te": "O(log N) - సంవర్గమాన సమయం (Logarithmic time)",
+        "hi": "O(log N) - लघुगणकीय समय (Logarithmic time)",
+        "ml": "O(log N) - ലോഗരിതമിക് സമയം (Logarithmic time)",
+        "kn": "O(log N) - ಲಾಗರಿಥಮಿಕ್ ಸಮಯ (Logarithmic time)"
+    },
+    "O(N) - Linear time": {
+        "ta": "O(N) - நேரியல் நேரம் (Linear time)",
+        "te": "O(N) - సరళ సమయం (Linear time)",
+        "hi": "O(N) - रैखिक समय (Linear time)",
+        "ml": "O(N) - രേഖീയ സമയം (Linear time)",
+        "kn": "O(N) - ರೇಖೀಯ ಸಮಯ (Linear time)"
+    },
+    "O(N log N) - Linearithmic time": {
+        "ta": "O(N log N) - நேரியல்-மடக்கை நேரம் (Linearithmic time)",
+        "te": "O(N log N) - లీనియరిథమిక్ సమయం (Linearithmic time)",
+        "hi": "O(N log N) - लीनियरिदमिक समय (Linearithmic time)",
+        "ml": "O(N log N) - ലീനിയറിതമിക് സമയം (Linearithmic time)",
+        "kn": "O(N log N) - ಲೀನಿಯರಿಥಮಿಕ್ ಸಮಯ (Linearithmic time)"
     }
 }
 
-# In-memory translation cache (source_text + "_" + target_lang -> translated_text)
-_TRANSLATION_CACHE: Dict[str, str] = {}
+# --- Technical Term & Code Masking ---
 
 def _protect_technical_terms(text: str) -> tuple[str, dict[str, str]]:
     """
-    Masks code tokens, big-O notation, equations, and technical keywords
+    Masks code tokens, big-O notation, equations, and programming keywords
     so translation engines don't distort them.
     """
     token_map = {}
     counter = 0
 
     patterns = [
-        r"O\([^\)]+\)",                       # O(1), O(log N), O(N), etc.
+        r"O\([^\)]+\)",                                                      # O(1), O(log N), O(N), etc.
         r"\b(Java|Python|C\+\+|SQL|HTML|CSS|JavaScript|TypeScript)\b",
-        r"\b(ALU|CPU|RAM|ROM|OSI|TCP/IP|UDP|HTTP|HTTPS|DNS|DHCP|REST|JSON|XML|API|DBMS|ACID|CAP)\b",
-        r"```[\s\S]*?```",                    # Fenced code blocks
-        r"`[^`]+`"                            # Inline code
+        r"\b(ALU|CPU|RAM|ROM|OSI|TCP/IP|UDP|HTTP|HTTPS|DNS|DHCP|REST|JSON|XML|API|DBMS|ACID|CAP|FIFO|LIFO)\b",
+        r"\b(SELECT|FROM|WHERE|GROUP BY|HAVING|ORDER BY|INNER JOIN|LEFT JOIN|RIGHT JOIN|INSERT INTO|UPDATE|DELETE)\b",
+        r"\b(System\.out\.println|public static void main|def |return |class |int |float |bool |void )\b",
+        r"```[\s\S]*?```",                                                   # Fenced code blocks
+        r"`[^`]+`"                                                           # Inline code
     ]
 
     masked_text = text
@@ -171,15 +244,82 @@ def _restore_technical_terms(text: str, token_map: dict[str, str]) -> str:
     restored = text
     for placeholder, original in token_map.items():
         restored = restored.replace(placeholder, original)
-        # Also catch space-mangled placeholders like "__ TECH _ TERM _ 0 __"
         cleaned_ph = placeholder.replace("_", "")
-        for variant in [placeholder.lower(), placeholder.upper(), f"__{cleaned_ph}__"]:
+        for variant in [placeholder.lower(), placeholder.upper(), f"__{cleaned_ph}__", f"__ {cleaned_ph} __"]:
             restored = restored.replace(variant, original)
     return restored
 
-def _translate_mymemory(text: str, source_lang: str, target_lang: str, timeout_sec: int = 4) -> Optional[str]:
+# --- Translation Engines ---
+
+def _get_openai_client():
+    api_key = getattr(settings, "OPENAI_API_KEY", None) or os.getenv("OPENAI_API_KEY")
+    if not api_key or api_key.startswith("your-") or len(api_key) < 10:
+        return None
+    try:
+        from openai import OpenAI
+        return OpenAI(api_key=api_key)
+    except Exception as e:
+        logger.debug(f"OpenAI client initialization skipped: {e}")
+        return None
+
+def _translate_with_openai(text: str, source_lang: str, target_lang: str) -> Optional[str]:
     """
-    Translates text using the MyMemory API service.
+    Translates text using OpenAI GPT-4o-mini / GPT-4o with rigorous academic exam preservation prompt.
+    """
+    client = _get_openai_client()
+    if not client:
+        return None
+
+    target_lang_name = LANGUAGE_NAMES.get(target_lang, target_lang)
+    model_name = getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
+
+    prompt = (
+        f"You are an expert academic and technical examination translator.\n"
+        f"Translate the following educational examination text accurately from English to {target_lang_name} ({target_lang}).\n\n"
+        f"STRICT RULES:\n"
+        f"1. Preserve all programming code, syntax, keywords (Java, Python, C++, SQL), and variable names exactly.\n"
+        f"2. Preserve mathematical formulas, numbers, equations, and Big-O notation (e.g. O(log N)).\n"
+        f"3. Preserve the exact meaning and intended correct answer.\n"
+        f"4. Do NOT add explanations, notes, markdown fencing, or conversational filler.\n"
+        f"5. Return ONLY the plain translated text.\n\n"
+        f"Text to translate:\n{text}"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": "You are a professional academic examination translation system."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,
+            max_tokens=1500
+        )
+        if response.choices and len(response.choices) > 0:
+            result = response.choices[0].message.content
+            if result and result.strip():
+                return result.strip().strip('"').strip("'")
+    except Exception as e:
+        logger.warning(f"OpenAI translation failed for {target_lang}: {e}")
+    return None
+
+def _translate_with_deep_translator(text: str, source_lang: str, target_lang: str) -> Optional[str]:
+    """
+    Translates text using the deep-translator package (GoogleTranslator).
+    """
+    try:
+        from deep_translator import GoogleTranslator
+        translator = GoogleTranslator(source=source_lang, target=target_lang)
+        res = translator.translate(text)
+        if res and res.strip() and res.strip() != text.strip():
+            return res.strip()
+    except Exception as e:
+        logger.debug(f"DeepTranslator failed for {target_lang}: {e}")
+    return None
+
+def _translate_with_mymemory(text: str, source_lang: str, target_lang: str, timeout_sec: int = 4) -> Optional[str]:
+    """
+    Translates text using the MyMemory public API with User-Agent header.
     """
     try:
         s_code = MYMEMORY_LANG_MAP.get(source_lang, "en-GB")
@@ -200,17 +340,42 @@ def _translate_mymemory(text: str, source_lang: str, target_lang: str, timeout_s
                 if res and not res.startswith("MYMEMORY WARNING:") and res.strip() != text.strip():
                     return res.strip()
     except Exception as e:
-        logger.debug(f"MyMemory translation request failed: {e}")
+        logger.debug(f"MyMemory translation failed: {e}")
     return None
+
+def _translate_with_gtx(text: str, source_lang: str, target_lang: str, timeout_sec: int = 5) -> Optional[str]:
+    """
+    Translates text using Google GTX HTTP service with User-Agent header.
+    """
+    try:
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl={source_lang}&tl={target_lang}&dt=t&q={urllib.parse.quote(text)}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+                parts = [part[0] for part in data[0] if part and isinstance(part, list) and len(part) > 0 and part[0]]
+                res = "".join(parts).strip()
+                if res and res != text.strip():
+                    return res
+    except Exception as e:
+        logger.debug(f"GTX translation failed for {target_lang}: {e}")
+    return None
+
+# --- Core Translation Function ---
 
 def translate_text(text: Optional[str], source_lang: str = "en", target_lang: str = "ta") -> str:
     """
     Translates a single string into the requested target language.
     Guarantees:
     - Never throws exceptions
-    - Never uses fake [தமிழ்] prefixes or Math.random()
-    - Uses domain dictionary, cache, or external translation service
-    - Gracefully falls back to original text if language matches or completely empty
+    - Uses OpenAI -> GTX -> DeepTranslator -> MyMemory -> Curated Dictionary
+    - Gracefully falls back to original text if language matches or service is unreachable
     """
     if not text or not text.strip():
         return text or ""
@@ -220,39 +385,63 @@ def translate_text(text: Optional[str], source_lang: str = "en", target_lang: st
     if target_lang == source_lang or target_lang == "en":
         return trimmed
 
+    if target_lang not in SUPPORTED_LANGUAGES:
+        return trimmed
+
     cache_key = f"{trimmed}_{target_lang}"
     if cache_key in _TRANSLATION_CACHE:
         return _TRANSLATION_CACHE[cache_key]
 
-    # Check curated dictionary first
+    # 1. Check curated domain dictionary first
     if trimmed in CORE_CS_DICTIONARY and target_lang in CORE_CS_DICTIONARY[trimmed]:
         result = CORE_CS_DICTIONARY[trimmed][target_lang]
         _TRANSLATION_CACHE[cache_key] = result
         return result
 
-    # Protect technical terms
+    # 2. Try OpenAI Translation (if configured)
+    openai_res = _translate_with_openai(trimmed, source_lang=source_lang, target_lang=target_lang)
+    if openai_res:
+        _TRANSLATION_CACHE[cache_key] = openai_res
+        return openai_res
+
+    # 3. Protect technical terms for secondary translation services
     masked_text, token_map = _protect_technical_terms(trimmed)
 
-    # Perform translation
-    translated = _translate_mymemory(masked_text, source_lang=source_lang, target_lang=target_lang)
-    
-    if not translated:
-        # Fallback to direct text if masking failed
-        translated = _translate_mymemory(trimmed, source_lang=source_lang, target_lang=target_lang)
+    # 4. Try GTX engine
+    gtx_res = _translate_with_gtx(masked_text, source_lang=source_lang, target_lang=target_lang)
+    if not gtx_res:
+        gtx_res = _translate_with_gtx(trimmed, source_lang=source_lang, target_lang=target_lang)
 
-    if translated:
-        final_result = _restore_technical_terms(translated, token_map)
+    if gtx_res:
+        final_result = _restore_technical_terms(gtx_res, token_map)
         _TRANSLATION_CACHE[cache_key] = final_result
         return final_result
 
-    # Controlled graceful fallback without fake prefixes
+    # 5. Try DeepTranslator (GoogleTranslator)
+    dt_res = _translate_with_deep_translator(masked_text, source_lang=source_lang, target_lang=target_lang)
+    if dt_res:
+        final_result = _restore_technical_terms(dt_res, token_map)
+        _TRANSLATION_CACHE[cache_key] = final_result
+        return final_result
+
+    # 6. Try MyMemory API
+    mm_res = _translate_with_mymemory(masked_text, source_lang=source_lang, target_lang=target_lang)
+    if not mm_res:
+        mm_res = _translate_with_mymemory(trimmed, source_lang=source_lang, target_lang=target_lang)
+
+    if mm_res:
+        final_result = _restore_technical_terms(mm_res, token_map)
+        _TRANSLATION_CACHE[cache_key] = final_result
+        return final_result
+
+    # 7. Fallback safely to original text without crashing
     _TRANSLATION_CACHE[cache_key] = trimmed
     return trimmed
 
 def translate_to_all_languages(text: Optional[str], source_lang: str = "en") -> Dict[str, str]:
     """
     Concurrently translates text into all 6 supported languages:
-    {"en": ..., "ta": ..., "te": ..., "hi": ..., "ml": ..., "kn": ...}
+    {"en": ..., "ta": ..., "hi": ..., "te": ..., "ml": ..., "kn": ...}
     """
     if not text or not text.strip():
         return {lang: (text or "") for lang in SUPPORTED_LANGUAGES}

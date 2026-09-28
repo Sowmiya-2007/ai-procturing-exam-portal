@@ -122,7 +122,7 @@ export const CreateExam = ({ setCurrentView }) => {
     if (activeTab === "manual") {
       loadBankQuestions();
     }
-  }, [activeTab, bankSearch, bankTypeFilter, bankSubjectFilter]);
+  }, [activeTab, bankSearch, bankTypeFilter, bankSubjectFilter, language]);
 
   // Handle Random Question Generation
   const handleGenerateRandomQuestions = async () => {
@@ -862,20 +862,21 @@ export const CreateExam = ({ setCurrentView }) => {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            padding: "0.55rem 0.85rem",
-                            borderRadius: "6px",
-                            background: isAdded ? "rgba(99, 102, 241, 0.18)" : "rgba(30, 41, 59, 0.4)",
-                            border: isAdded ? "1px solid rgba(99, 102, 241, 0.5)" : "1px solid var(--border-color)",
-                            gap: "0.75rem"
+                            padding: "0.85rem 1.15rem",
+                            borderRadius: "var(--radius-md)",
+                            background: isAdded ? "rgba(99, 102, 241, 0.18)" : "rgba(30, 41, 59, 0.5)",
+                            border: isAdded ? "1px solid rgba(99, 102, 241, 0.55)" : "1px solid var(--border-color)",
+                            gap: "1rem",
+                            transition: "all 0.18s ease"
                           }}
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: "0.85rem", color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {translateContent(q.question_text, language)}
+                            <div style={{ fontSize: "0.925rem", color: "var(--text-main)", fontWeight: 600, lineHeight: 1.4, marginBottom: "0.35rem" }}>
+                              {q[`question_text_${language}`] || translateContent(q.question_text, language)}
                             </div>
-                            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.725rem", color: "var(--text-muted)" }}>
+                            <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", fontSize: "0.78rem", color: "var(--text-muted)", flexWrap: "wrap" }}>
                               <TypeBadge type={q.question_type} />
-                              <span style={{ color: "#a5b4fc" }}>{translateContent(q.subject, language)}</span>
+                              <span style={{ color: "#a5b4fc", fontWeight: 600 }}>{q[`subject_${language}`] || translateContent(q.subject, language)}</span>
                               <span>&bull;</span>
                               <span style={{ color: "#34d399", fontWeight: 700 }}>{q.marks} {t("common.marks", "Marks")}</span>
                             </div>
@@ -884,7 +885,7 @@ export const CreateExam = ({ setCurrentView }) => {
                             type="button"
                             onClick={() => handleToggleManualQuestion(q)}
                             className={`btn btn-sm ${isAdded ? "btn-secondary" : "btn-primary"}`}
-                            style={{ fontSize: "0.75rem", padding: "0.25rem 0.65rem", flexShrink: 0 }}
+                            style={{ fontSize: "0.8rem", padding: "0.4rem 0.85rem", flexShrink: 0 }}
                           >
                             {isAdded ? t("common.remove", "Remove") : t("create_exam.add_question", "+ Add")}
                           </button>

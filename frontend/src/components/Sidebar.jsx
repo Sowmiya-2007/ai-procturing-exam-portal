@@ -37,9 +37,7 @@ export const Sidebar = ({ currentView, setCurrentView, pendingCount = 0, pending
       badge: pendingCount > 0 ? pendingCount : null,
       badgeColor: "#fbbf24"
     },
-    { id: "admin_available_exams", label: t("sidebar.available_exams", null, "Available Exams"), icon: Layers },
-    { id: "question_bank", label: t("sidebar.question_bank", null, "Question Bank Hub"), icon: HelpCircle },
-    { id: "create_exam", label: t("sidebar.create_exam", null, "Create Exam"), icon: PlusCircle }
+    { id: "admin_available_exams", label: t("sidebar.available_exams", null, "Available Exams"), icon: Layers }
   ];
 
   const examinerNavItems = [
